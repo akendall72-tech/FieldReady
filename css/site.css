@@ -166,7 +166,26 @@ legend { font-weight: 700; padding: 0 6px; }
 .field-flags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; }
 .field-flags label.check { margin: 8px 0 0; }
 
+/* ---------- options editor */
+
+.outline-list { list-style: none; margin: 0; padding: 0; }
+.option-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.option { border-top: 1px solid var(--hairline); padding: 10px 0 12px; }
+.option:first-child { border-top: none; }
+.option.hidden-option .option-name input { color: var(--text-secondary); text-decoration: line-through; }
+.option-head { display: flex; gap: 12px; align-items: flex-end; }
+.option-head .option-name { flex: 1; margin-top: 0; }
+.option-head .tools { padding-bottom: 6px; }
+.option-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.option-settings label.check { margin-top: 14px; }
+.option-foot { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; margin-top: 10px; }
+.option-foot label.check { margin: 0; }
+.option-foot .hint { margin: 0; }
+.add-option { display: flex; gap: 12px; align-items: flex-end; border-top: 1px solid var(--hairline); margin-top: 12px; padding-top: 4px; }
+.add-option label { flex: 1; }
+
 @media (max-width: 860px) {
+  .option-settings { grid-template-columns: 1fr; }
   .editor { grid-template-columns: 1fr; }
   .outline { position: static; max-height: none; }
   .field-row, .grid2 { grid-template-columns: 1fr; }

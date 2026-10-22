@@ -1,7 +1,7 @@
 # Field Ready Admin
 
-The website owners and admins use to manage Field Ready: the inspection checklist now, machine
-options and people & stores next. It's plain HTML, CSS, and JavaScript that talks straight to the
+The website owners and admins use to manage Field Ready: the inspection checklist and machine
+options now, people & stores next. It's plain HTML, CSS, and JavaScript that talks straight to the
 Field Ready Supabase project, so there's nothing to build or run on a server. GitHub Pages serves
 it from this repository.
 
@@ -14,6 +14,7 @@ repository.
 |---|---|---|---|
 | Sign in | Yes | Yes | No (they use the app) |
 | Inspection checklist | Edit everything, publish | Edit How to Check steps in the draft | — |
+| Machine options | Edit everything | Look only | — |
 
 The database enforces these rules (`supabase/migrations` in FieldReadyApp); the website only hides
 what someone can't do.
@@ -29,6 +30,19 @@ what someone can't do.
 - Check keys never change once published, so answers on draft inspections carry over.
 - The editor won't publish a checklist phones couldn't use (the same rules the app applies).
 
+## How the options editor works
+
+- Each list is what technicians pick from when they describe a machine: guidance systems,
+  steering, correction types and their services, component types, optional features, and so on.
+- **Rename**, **reorder**, **hide**, and **add** options, and set what the app does with them
+  (for example, whether a steering type steers automatically, which decides if steering checks
+  apply). **Save Changes** sends them; phones pick them up at their next sync.
+- An option's value (shown as "Saved as …") never changes, because machines and inspections store
+  it. Hidden options aren't offered for new work but still show on records that have them.
+- Options the app relies on (Other, Unknown, Preseason, the display, receiver, and steering
+  component types…) can be renamed but not hidden.
+- Saving never overwrites an option someone else saved since you opened the page.
+
 ## Files
 
 | Path | What it is |
@@ -39,14 +53,20 @@ what someone can't do.
 | `js/main.js` | Sign-in, who may use the site, header and pages |
 | `js/views/checklist.js` | The checklist editor |
 | `js/checklist-model.js` | Checklist rules (validation, versions, keys), tested on their own |
-| `tests/checklist-model.test.mjs` | Tests for those rules |
+| `js/views/options.js` | The machine options editor |
+| `js/options-model.js` | Option rules (lists and their settings, new values, ordering, changes), tested on their own |
+| `tests/*.test.mjs` | Tests for those rules |
 
 ## Testing
 
-The checklist rules run in the JavaScript engine built into macOS:
+The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/preseason-general.json
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/options-model.test.mjs -- ../FieldReady/supabase/seed/default_catalog.sql
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open

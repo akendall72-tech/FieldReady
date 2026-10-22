@@ -3,16 +3,20 @@
 import { supabase, signIn, signOut, loadProfile, describe } from "./api.js";
 import { escape } from "./ui.js";
 import { mountChecklist } from "./views/checklist.js";
+import { mountOptions } from "./views/options.js";
 
 const root = document.getElementById("app");
 
 const PAGES = [
-  { id: "checklist", label: "Inspection checklist", ready: true },
-  { id: "options", label: "Machine options", ready: false, note: "Coming next" },
-  { id: "people", label: "People & stores", ready: false, note: "Coming later" },
+  { id: "checklist", label: "Inspection checklist", mount: mountChecklist },
+  { id: "options", label: "Machine options", mount: mountOptions },
+  { id: "people", label: "People & stores", note: "Coming next" },
 ];
 
-let current = { session: null, profile: null, page: "checklist", leaveCheck: null };
+/** The page named in the address (#options), or the checklist. */
+const pageFromAddress = () => PAGES.find((page) => page.mount && `#${page.id}` === location.hash)?.id ?? "checklist";
+
+let current = { session: null, profile: null, page: pageFromAddress(), leaveCheck: null };
 
 function renderSignIn(message = "") {
   root.innerHTML = `
@@ -71,7 +75,7 @@ function renderShell() {
       </div>
     </header>
     <nav class="tabs" aria-label="Sections">
-      ${PAGES.map((page) => page.ready
+      ${PAGES.map((page) => page.mount
         ? `<a href="#${page.id}" class="tab${current.page === page.id ? " active" : ""}"${current.page === page.id ? ' aria-current="page"' : ""}>${page.label}</a>`
         : `<span class="tab disabled" title="${escape(page.note)}">${page.label} <small>${escape(page.note)}</small></span>`).join("")}
     </nav>
@@ -81,8 +85,20 @@ function renderShell() {
     await signOut();
   });
   const page = root.querySelector("[data-page]");
-  current.leaveCheck = mountChecklist(page, { profile });
+  current.leaveCheck = PAGES.find((p) => p.id === current.page).mount(page, { profile });
 }
+
+window.addEventListener("hashchange", () => {
+  const next = pageFromAddress();
+  if (!current.profile || next === current.page) return;
+  if (current.leaveCheck && !current.leaveCheck()) {
+    // Stay, and put the address back to the page that's still showing.
+    history.replaceState(null, "", `#${current.page}`);
+    return;
+  }
+  current.page = next;
+  renderShell();
+});
 
 async function show(session) {
   current.session = session;

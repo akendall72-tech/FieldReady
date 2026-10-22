@@ -52,16 +52,47 @@ export async function loadChecklists() {
     .order("created_at", { ascending: true }));
 }
 
-/** Active option lists (guidance systems, features, correction types…) grouped by list name. */
-export async function loadOptions() {
-  const rows = unwrap(await supabase
+/** Every option (guidance systems, features, correction services…), hidden ones included. */
+export async function loadOptionRows() {
+  return unwrap(await supabase
     .from("catalog_options")
-    .select("list, value, label, parent_value, sort_order, details, active")
-    .eq("active", true)
+    .select("id, organization_id, list, value, label, parent_value, sort_order, active, details, updated_at")
     .order("sort_order", { ascending: true }));
+}
+
+/** Option lists grouped by list name, in order. Hidden options are included (marked `active: false`). */
+export async function loadOptions() {
   const lists = {};
-  for (const row of rows) (lists[row.list] ??= []).push(row);
+  for (const row of await loadOptionRows()) (lists[row.list] ??= []).push(row);
   return lists;
+}
+
+const OPTION_COLUMNS = ["organization_id", "list", "value", "label", "parent_value", "sort_order", "active", "details"];
+const pick = (row, columns) => Object.fromEntries(columns.map((column) => [column, row[column] ?? null]));
+
+/**
+ * Adds new options and saves edited ones. An edited option someone else saved since it was loaded
+ * is skipped, and SaveConflict names them, so nobody's change is overwritten without them knowing.
+ */
+export async function saveOptions(added, updated) {
+  if (added.length) {
+    const { error } = await supabase.from("catalog_options").insert(added.map((row) => pick(row, OPTION_COLUMNS)));
+    if (error?.code === "23505") throw new Error("An option with that value already exists in the list. Reload to see it.");
+    if (error) throw error;
+  }
+  const skipped = [];
+  for (const row of updated) {
+    const rows = unwrap(await supabase
+      .from("catalog_options")
+      .update(pick(row, ["label", "sort_order", "active", "details"]))
+      .eq("id", row.id)
+      .eq("updated_at", row.updated_at)
+      .select("id"));
+    if (rows.length === 0) skipped.push(row.label);
+  }
+  if (skipped.length) {
+    throw new SaveConflict(`Someone else changed ${skipped.map((label) => `“${label}”`).join(", ")} since you opened this page, so ${skipped.length === 1 ? "that change wasn't" : "those changes weren't"} saved.`);
+  }
 }
 
 export async function createDraft(live, version, content) {

@@ -204,14 +204,15 @@ export function mountChecklist(root, { profile }) {
   }
 
   function choices(list, field, selected, title) {
-    const options = state.options[list] ?? [];
-    if (options.length === 0) return `<p class="hint">${escape(title)}: no options on the server yet.</p>`;
     const chosen = new Set(selected ?? []);
+    // Hidden options aren't offered, but stay visible while a check uses them.
+    const options = (state.options[list] ?? []).filter((option) => option.active || chosen.has(option.value));
+    if (options.length === 0) return `<p class="hint">${escape(title)}: no options on the server yet.</p>`;
     return `
       <div class="choices">
         <span class="choices-title">${escape(title)}</span>
         ${options.map((option) => `
-          <label class="check"><input type="checkbox" data-field="${field}" data-value="${escape(option.value)}"${attr("checked", chosen.has(option.value))}${disabledUnless(canEditAll())}> ${escape(option.label)}</label>`).join("")}
+          <label class="check"><input type="checkbox" data-field="${field}" data-value="${escape(option.value)}"${attr("checked", chosen.has(option.value))}${disabledUnless(canEditAll())}> ${escape(option.label)}${option.active ? "" : " <small>(hidden)</small>"}</label>`).join("")}
       </div>`;
   }
 
