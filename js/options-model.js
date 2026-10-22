@@ -189,8 +189,11 @@ export function problems(rows) {
       found.push(`Two options in ${where} are both called “${row.label.trim()}”.`);
     }
     if (!seen.has(key) || row.active) seen.set(key, row);
-    if (row.list === "correction_service" && row.active && !(row.details?.provider ?? "").trim()) {
-      found.push(`“${row.label}” in ${where} needs a provider.`);
+    // The app groups services under their heading (or provider). Generic services, like a state
+    // RTK network, have a heading but no provider.
+    const heading = `${row.details?.provider ?? ""}${row.details?.group ?? ""}`.trim();
+    if (row.list === "correction_service" && row.active && !heading) {
+      found.push(`“${row.label}” in ${where} needs a provider or a heading.`);
     }
   }
   return found;

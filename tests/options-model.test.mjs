@@ -63,9 +63,11 @@ const sample = () => [
   check("auto-steer starts not known", steering.details.autoSteer === null && "autoSteer" in steering.details);
   const service = newOption(rows, "correction_service", "Local VRS", { organizationId: "org", parent: "networkRTK" });
   check("a new service belongs to its correction type", service.parent_value === "networkRTK" && service.sort_order === 1);
-  check("a new service needs a provider", problems([...rows, service]).some((p) => p.includes("needs a provider")));
+  check("a new service needs a provider", problems([...rows, service]).some((p) => p.includes("needs a provider or a heading")));
   service.details.provider = "Agri-Service";
   check("…and is fine with one", problems([...rows, service]).length === 0);
+  service.details = { provider: "", group: "Other networks" };
+  check("…or with just a heading, like the built-in VRS / NTRIP network", problems([...rows, service]).length === 0);
 }
 
 // Moving
@@ -109,9 +111,18 @@ if (seedPath) {
   const ids = new Set(LISTS.map((list) => list.id));
   const unknown = [...lists].filter((list) => !ids.has(list));
   check(`every seeded list is editable (${unknown.join(", ")})`, lists.size > 0 && unknown.length === 0);
+  const text = (sql) => sql.slice(1, -1).replaceAll("''", "'");
+  const literal = "'(?:[^']|'')*'";
+  const tuple = new RegExp(`^\\s*\\((${literal}), (${literal}), (${literal}), (null|${literal}), (\\d+), (${literal})\\)`, "gm");
+  const seeded = [...seed.matchAll(tuple)].map((m, n) => ({
+    id: `seed-${n}`, list: text(m[1]), value: text(m[2]), label: text(m[3]), parent_value: m[4] === "null" ? null : text(m[4]),
+    sort_order: Number(m[5]), active: true, details: JSON.parse(text(m[6])),
+  }));
+  const found = problems(seeded);
+  check(`the default options pass the rules (${found.join(" ")})`, seeded.length > 50 && found.length === 0);
   const symbols = new Set(SYMBOLS.map((s) => s.value));
-  const seeded = [...seed.matchAll(/"symbol":"([^"]+)"/g)].map((m) => m[1]);
-  check(`every seeded icon can be chosen (${seeded.filter((s) => !symbols.has(s)).join(", ")})`, seeded.every((s) => symbols.has(s)));
+  const icons = [...seed.matchAll(/"symbol":"([^"]+)"/g)].map((m) => m[1]);
+  check(`every seeded icon can be chosen (${icons.filter((s) => !symbols.has(s)).join(", ")})`, icons.every((s) => symbols.has(s)));
 }
 
 print(`${passed} passed, ${failures.length} failed`);
