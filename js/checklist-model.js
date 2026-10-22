@@ -57,6 +57,7 @@ export function problems(content, known = {}) {
   const itemKeys = new Set();
   for (const section of content.sections) {
     const sectionName = isBlank(section?.title) ? "A section" : `Section “${section.title}”`;
+    const inSection = isBlank(section?.title) ? "a section" : `“${section.title}”`;
     if (isBlank(section?.key) || sectionKeys.has(section.key)) found.push(`${sectionName} needs its own key.`);
     else sectionKeys.add(section.key);
     if (isBlank(section?.title)) found.push("A section has no title.");
@@ -66,10 +67,10 @@ export function problems(content, known = {}) {
       continue;
     }
     for (const item of section.items) {
-      const name = isBlank(item?.title) ? `A check in ${sectionName.toLowerCase()}` : `Check “${item.title}”`;
+      const name = isBlank(item?.title) ? `A check in ${inSection}` : `Check “${item.title}”`;
       if (isBlank(item?.key) || itemKeys.has(item.key)) found.push(`${name} needs its own key.`);
       else itemKeys.add(item.key);
-      if (isBlank(item?.title)) found.push(`A check in ${sectionName.toLowerCase()} has no title.`);
+      if (isBlank(item?.title)) found.push(`A check in ${inSection} has no title.`);
       if (!isText(item?.purpose)) found.push(`${name} is missing “Why it matters”.`);
       if (!isStringArray(item?.steps)) found.push(`${name} has no How to Check steps.`);
       if (!isText(item?.lookFor)) found.push(`${name} is missing “What good looks like”.`);

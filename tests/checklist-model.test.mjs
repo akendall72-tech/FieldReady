@@ -40,7 +40,7 @@ check("a minimal checklist is usable", problems(minimal()).length === 0);
 {
   const content = minimal();
   content.sections[0].items[0].title = "  ";
-  check("blank titles are caught", problems(content).some((p) => p.includes("has no title")));
+  check("blank titles are caught, naming the section as written", problems(content).includes("A check in “Identify the system” has no title."));
 }
 {
   const content = minimal();
