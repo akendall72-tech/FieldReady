@@ -73,6 +73,22 @@ check("a minimal checklist is usable", problems(minimal()).length === 0);
   check("a checklist with no checks is caught", problems(content).includes("The checklist has no checks."));
 }
 
+{
+  const content = minimal();
+  content.sections[0].items[0].steps = ["Look", " "];
+  check("empty steps are caught (phones would show a blank step)", problems(content).some((p) => p.includes("empty How to Check step")));
+  content.sections[0].items[0].steps = [];
+  check("a check needs at least one step", problems(content).some((p) => p.includes("at least one How to Check step")));
+}
+{
+  const content = minimal();
+  const added = newCheck(content, content.sections[0], "Hydraulic filter");
+  content.sections[0].items.push(added);
+  check("a new check isn't publishable until its step is written", problems(content).some((p) => p.includes("“Hydraulic filter” has an empty")));
+  added.steps = ["Check the filter indicator."];
+  check("…and is once it is", problems(content).length === 0);
+}
+
 // Versions
 check("0.8 is newer than 0.7-draft", isNewer("0.8", "0.7-draft"));
 check("0.10 is newer than 0.9", isNewer("0.10", "0.9"));
@@ -93,7 +109,8 @@ check("unique keys get a number", uniqueKey("Antenna", new Set(["physical.antenn
   const content = minimal();
   const check1 = newCheck(content, content.sections[0], "Display");
   check("new checks get a key nothing else uses", check1.key === "identify.display2" && !itemKeys(content).has(check1.key));
-  check("new checks are readable by phones", problems({ ...content, sections: [{ ...content.sections[0], items: [check1] }] }).length === 0);
+  check1.steps = ["Look at it."];
+  check("new checks are readable by phones once written", problems({ ...content, sections: [{ ...content.sections[0], items: [check1] }] }).length === 0);
   const section = newSection(content, "Identify the system");
   check("new sections get a key nothing else uses", section.key === "identifyTheSystem");
 }

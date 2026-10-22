@@ -72,7 +72,8 @@ export function problems(content, known = {}) {
       else itemKeys.add(item.key);
       if (isBlank(item?.title)) found.push(`A check in ${inSection} has no title.`);
       if (!isText(item?.purpose)) found.push(`${name} is missing “Why it matters”.`);
-      if (!isStringArray(item?.steps)) found.push(`${name} has no How to Check steps.`);
+      if (!isStringArray(item?.steps) || item.steps.length === 0) found.push(`${name} needs at least one How to Check step.`);
+      else if (item.steps.some(isBlank)) found.push(`${name} has an empty How to Check step. Fill it in or remove it.`);
       if (!isText(item?.lookFor)) found.push(`${name} is missing “What good looks like”.`);
       if (!CONDITION_VALUES.has(item?.condition)) found.push(`${name} needs a machine condition.`);
       if (typeof item?.required !== "boolean") found.push(`${name} must be required or optional.`);
