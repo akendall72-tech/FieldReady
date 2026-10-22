@@ -1,9 +1,10 @@
 // Tests for js/checklist-model.js. Run with the JavaScript engine built into macOS (no installs):
 //
 //   JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
-//   $JSC -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/preseason-general.json
+//   $JSC -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/*.json ../FieldReady/supabase/seed/default_catalog.sql
 //
-// The optional argument is the app's bundled checklist, which must pass the same rules.
+// The optional arguments are the app's bundled checklists, which must pass the same rules, and its
+// default option seed, which supplies the option values phones know.
 
 import {
   problems, isNewer, nextVersion, liveVersion, slug, uniqueKey, newCheck, newSection, draftFrom, move, itemKeys,
@@ -128,17 +129,24 @@ check("unique keys get a number", uniqueKey("Antenna", new Set(["physical.antenn
   check("moving past the end does nothing", move(array, 2, 1) === 2 && same(array, ["b", "a", "c"]));
 }
 
-// The app's bundled checklist passes the same rules.
-const templatePath = (typeof arguments !== "undefined" ? arguments : scriptArgs ?? [])[0];
-if (templatePath) {
+// The app's bundled checklists pass the same rules.
+const args = typeof arguments !== "undefined" ? arguments : scriptArgs ?? [];
+const seedPath = args.find((path) => path.endsWith(".sql"));
+let known = {
+  guidance_system: new Set(["ptx", "fendtGuide", "mfGuide", "other"]),
+  feature: new Set(["implementGuidance", "automaticTurns", "sectionControl", "isobus", "rateControl", "dataTransfer"]),
+  correction_type: new Set(["standardGNSS", "satellite", "networkRTK", "localRTK", "other", "unknown"]),
+};
+if (seedPath) {
+  known = {};
+  for (const [, list, value] of read(seedPath).matchAll(/^\s*\('([a-z_]+)', '((?:[^']|'')*)'/gm)) {
+    (known[list] ??= new Set()).add(value.replaceAll("''", "'"));
+  }
+}
+for (const templatePath of args.filter((path) => path.endsWith(".json"))) {
   const bundled = JSON.parse(read(templatePath));
-  const known = {
-    guidance_system: new Set(["ptx", "fendtGuide", "mfGuide", "other"]),
-    feature: new Set(["implementGuidance", "automaticTurns", "sectionControl", "isobus", "rateControl", "dataTransfer"]),
-    correction_type: new Set(["standardGNSS", "satellite", "networkRTK", "localRTK", "other", "unknown"]),
-  };
   const found = problems(bundled, known);
-  check(`the app's bundled checklist is usable (${found.join(" ")})`, found.length === 0);
+  check(`${bundled.id} is usable (${found.join(" ")})`, found.length === 0);
 }
 
 print(`${passed} passed, ${failures.length} failed`);

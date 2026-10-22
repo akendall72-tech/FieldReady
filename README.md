@@ -21,6 +21,7 @@ what someone can't do.
 
 ## How the checklist editor works
 
+- There's one checklist per equipment type. The **Tractor / Planter** switch picks which one to edit.
 - Phones use the **live** version: the highest published version number.
 - **Start Editing** makes one shared **draft** of the next version. Save as often as you like;
   phones don't see drafts.
@@ -41,6 +42,9 @@ what someone can't do.
   it. Hidden options aren't offered for new work but still show on records that have them.
 - Options the app relies on (Other, Unknown, Preseason, the display, receiver, and steering
   component types…) can be renamed but not hidden.
+- **Equipment types** (Tractor, Planter) can be renamed but not added here: each type needs its own
+  technology questions and checklist in the app. Optional features and component types say which
+  types they're **used on**; a planter's features are its Precision Planting products.
 - Saving never overwrites an option someone else saved since you opened the page.
 
 ## Files
@@ -62,7 +66,7 @@ what someone can't do.
 The rules run in the JavaScript engine built into macOS:
 
 ```bash
-/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/preseason-general.json
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/*.json ../FieldReady/supabase/seed/default_catalog.sql
 ```
 
 ```bash

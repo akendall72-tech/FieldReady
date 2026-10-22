@@ -17,6 +17,8 @@ export function mountOptions(root, { profile }) {
     list: model.LISTS[0].id,
     /** The correction type whose services are shown. */
     parent: null,
+    /** For lists with "used on": the equipment type shown, or "" for all. */
+    equipment: "",
     busy: false,
     loadError: null,
     nextKey: 1,
@@ -29,8 +31,10 @@ export function mountOptions(root, { profile }) {
     const { added, updated } = model.changes(state.rows, state.saved);
     return added.length + updated.length > 0;
   };
-  const visibleRows = () => model.optionsIn(state.rows, state.list, info().parentList ? state.parent : null);
+  const visibleRows = () => model.optionsIn(state.rows, state.list, info().parentList ? state.parent : null)
+    .filter((row) => !state.equipment || !model.hasUsedOn(state.list) || model.usedOn(row).includes(state.equipment));
   const correctionTypes = () => model.optionsIn(state.rows, "correction_type");
+  const equipmentTypes = () => model.optionsIn(state.rows, "equipment_type");
 
   // ---------------------------------------------------------------- loading
 
@@ -137,6 +141,13 @@ export function mountOptions(root, { profile }) {
           ${correctionTypes().map((type) => `<option value="${escape(type.value)}"${attr("selected", type.value === state.parent)}>${escape(type.label)}${type.active ? "" : " (hidden)"}</option>`).join("")}
         </select>
       </label>` : "";
+    const equipmentPicker = model.hasUsedOn(list.id) ? `
+      <label>Show options used on
+        <select data-field="equipment-filter">
+          <option value=""${attr("selected", !state.equipment)}>All equipment</option>
+          ${equipmentTypes().map((type) => `<option value="${escape(type.value)}"${attr("selected", type.value === state.equipment)}>${escape(type.label)}</option>`).join("")}
+        </select>
+      </label>` : "";
     const empty = list.parentList
       ? "No services listed for this correction type. Technicians type the service in."
       : "No options in this list yet.";
@@ -145,8 +156,9 @@ export function mountOptions(root, { profile }) {
         <h2>${escape(list.title)}</h2>
         <p class="hint">${escape(list.about)}</p>
         ${parentPicker}
+        ${equipmentPicker}
         ${rows.length ? `<ol class="option-list">${rows.map((row, index) => optionRow(row, index, rows.length)).join("")}</ol>` : `<p class="hint">${escape(empty)}</p>`}
-        ${isOwner && (!list.parentList || state.parent) ? `
+        ${isOwner && list.canAdd !== false && (!list.parentList || state.parent) ? `
           <form class="add-option" data-add>
             <label>Add an option <input name="label" placeholder="Name people will see" autocomplete="off"></label>
             <button class="secondary" type="submit">Add</button>
@@ -198,6 +210,15 @@ export function mountOptions(root, { profile }) {
             </select>
           </label>`;
       }
+      case "equipment": {
+        const chosen = model.usedOn(row);
+        return `
+          <div class="choices">
+            <span class="choices-title">${escape(setting.label)}</span>
+            ${equipmentTypes().map((type) => `
+              <label class="check"><input type="checkbox" ${data} data-value="${escape(type.value)}"${attr("checked", chosen.includes(type.value))}${disabled}> ${escape(type.label)}</label>`).join("")}
+          </div>`;
+      }
       case "symbol": {
         const known = model.SYMBOLS.some((symbol) => symbol.value === value);
         return `
@@ -223,6 +244,10 @@ export function mountOptions(root, { profile }) {
       state.parent = element.value;
       return render();
     }
+    if (field === "equipment-filter") {
+      state.equipment = element.value;
+      return render();
+    }
     if (!isOwner) return;
     const row = rowFor(element.dataset.key);
     if (!row) return;
@@ -238,6 +263,13 @@ export function mountOptions(root, { profile }) {
         const details = { ...(row.details ?? {}) };
         const name = element.dataset.setting;
         if (element.dataset.type === "bool") details[name] = element.checked;
+        else if (element.dataset.type === "equipment") {
+          // Keep the equipment types' own order so saved rows don't change for no reason.
+          const chosen = new Set(model.usedOn(row));
+          if (element.checked) chosen.add(element.dataset.value);
+          else chosen.delete(element.dataset.value);
+          details[name] = equipmentTypes().map((type) => type.value).filter((value) => chosen.has(value));
+        }
         else if (element.dataset.type === "tristate") details[name] = element.value === "" ? null : element.value === "yes";
         else details[name] = element.value;
         row.details = details;
@@ -256,7 +288,8 @@ export function mountOptions(root, { profile }) {
     const label = form.label.value.trim();
     if (!label || !isOwner) return;
     const parent = info().parentList ? state.parent : null;
-    const row = model.newOption(state.rows, state.list, label, { organizationId: profile.organization_id, parent });
+    const equipment = model.hasUsedOn(state.list) ? state.equipment || null : null;
+    const row = model.newOption(state.rows, state.list, label, { organizationId: profile.organization_id, parent, equipment });
     row._key = `new-${state.nextKey++}`;
     state.rows.push(row);
     render();

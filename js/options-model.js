@@ -7,15 +7,27 @@
 
 import { slug } from "./checklist-model.js";
 
+/** Lists whose options say which equipment types use them. */
+const USED_ON = { key: "equipment", type: "equipment", label: "Used on" };
+
 /**
  * The lists, in the order the editor shows them. `settings` are the details the app reads;
- * `fixed` are values the app relies on, which can be renamed but not hidden.
+ * `fixed` are values the app relies on, which can be renamed but not hidden. `canAdd: false`
+ * lists need app support for new options.
  */
 export const LISTS = [
   {
+    id: "equipment_type",
+    title: "Equipment types",
+    about: "Each type has its own technology questions and inspection checklist, so new types need an app update and can't be added here.",
+    settings: [],
+    fixed: ["tractor", "planter"],
+    canAdd: false,
+  },
+  {
     id: "guidance_system",
     title: "Guidance systems",
-    about: "The first question about a machine's technology. Checklist checks can apply to some systems only.",
+    about: "The first question about a tractor's technology. Checklist checks can apply to some systems only.",
     settings: [
       { key: "subtitle", type: "text", label: "Description", hint: "Shown under the name in the app" },
       { key: "factoryIntegrated", type: "bool", label: "Factory-integrated: guidance software and steering are built in" },
@@ -69,6 +81,7 @@ export const LISTS = [
     title: "Component types",
     about: "The parts recorded on a machine, in the order the app lists them.",
     settings: [
+      USED_ON,
       { key: "symbol", type: "symbol", label: "Icon" },
       { key: "correctionLevel", type: "bool", label: "Has a correction level (like a GNSS receiver)" },
     ],
@@ -77,8 +90,8 @@ export const LISTS = [
   {
     id: "feature",
     title: "Optional features",
-    about: "Features a machine may have. A feature's checks are included only when it's marked Installed.",
-    settings: [{ key: "examples", type: "text", label: "Examples", hint: "Shown under the name in the app" }],
+    about: "Features a machine may have, such as a planter's Precision Planting products. A feature's checks are included only when it's marked Installed.",
+    settings: [USED_ON, { key: "examples", type: "text", label: "Description", hint: "Shown under the name in the app" }],
     fixed: [],
   },
   {
@@ -115,6 +128,12 @@ export const SYMBOLS = [
 
 export const listInfo = (id) => LISTS.find((list) => list.id === id);
 
+/** Whether a list's options say which equipment types use them. */
+export const hasUsedOn = (list) => (listInfo(list)?.settings ?? []).some((setting) => setting.type === "equipment");
+
+/** The equipment types an option is used on. Options saved before planters existed are tractor options. */
+export const usedOn = (row) => (Array.isArray(row.details?.equipment) ? row.details.equipment : ["tractor"]);
+
 /** The options of one list (and one parent, for correction services), in order. */
 export function optionsIn(rows, list, parent = null) {
   return rows
@@ -137,13 +156,17 @@ export function newValue(label, taken, list = "") {
   return value;
 }
 
-/** A new option at the end of its list. Settings start off (or not known) until someone sets them. */
-export function newOption(rows, list, label, { organizationId, parent = null } = {}) {
+/**
+ * A new option at the end of its list. Settings start off (or not known) until someone sets them;
+ * "used on" starts with `equipment` (the type being viewed), or empty so someone has to choose.
+ */
+export function newOption(rows, list, label, { organizationId, parent = null, equipment = null } = {}) {
   const siblings = optionsIn(rows, list, parent);
   const details = {};
   for (const setting of listInfo(list)?.settings ?? []) {
     if (setting.type === "bool") details[setting.key] = false;
     if (setting.type === "tristate") details[setting.key] = null;
+    if (setting.type === "equipment") details[setting.key] = equipment ? [equipment] : [];
   }
   if (list === "correction_service") details.provider = "";
   return {
@@ -192,6 +215,9 @@ export function problems(rows) {
     // The app groups services under their heading (or provider). Generic services, like a state
     // RTK network, have a heading but no provider.
     const heading = `${row.details?.provider ?? ""}${row.details?.group ?? ""}`.trim();
+    if (hasUsedOn(row.list) && row.active && usedOn(row).length === 0) {
+      found.push(`“${row.label}” in ${where} isn't used on any equipment type.`);
+    }
     if (row.list === "correction_service" && row.active && !heading) {
       found.push(`“${row.label}” in ${where} needs a provider or a heading.`);
     }

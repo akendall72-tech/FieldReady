@@ -6,7 +6,7 @@
 // The optional argument is the app's default option seed, whose lists must all be known here.
 
 import {
-  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes,
+  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn,
 } from "../js/options-model.js";
 
 let passed = 0;
@@ -68,6 +68,20 @@ const sample = () => [
   check("…and is fine with one", problems([...rows, service]).length === 0);
   service.details = { provider: "", group: "Other networks" };
   check("…or with just a heading, like the built-in VRS / NTRIP network", problems([...rows, service]).length === 0);
+}
+
+// Equipment types ("used on")
+{
+  check("features and component types say what they're used on", hasUsedOn("feature") && hasUsedOn("component_kind") && !hasUsedOn("steering"));
+  check("options saved before planters are tractor options", usedOn(row("feature", "isobus", "ISOBUS", 0)).join() === "tractor");
+  check("equipment types can't be added here", LISTS.find((list) => list.id === "equipment_type").canAdd === false);
+  check("tractor and planter can't be hidden", !canHide(row("equipment_type", "planter", "Planter", 1)));
+  const rows = sample();
+  const product = newOption(rows, "feature", "Seed firmer", { organizationId: "org", equipment: "planter" });
+  check("a new option is used on the type being viewed", product.details.equipment.join() === "planter");
+  const unsure = newOption(rows, "feature", "Yield monitor", { organizationId: "org" });
+  check("…or on nothing yet, which must be fixed before saving", unsure.details.equipment.length === 0
+    && problems([...rows, unsure]).some((p) => p.includes("isn't used on any equipment type")));
 }
 
 // Moving

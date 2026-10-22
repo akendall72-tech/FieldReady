@@ -1,18 +1,24 @@
 // The inspection checklist editor.
 //
-// Phones use the live (newest published) version. Editing happens in one shared draft: owners can
+// There's one checklist per equipment type (tractor, planter); a switch picks which to edit.
+// Phones use the live (newest published) version of each. Editing happens in one shared draft: owners can
 // change everything and publish it; admins can change only How to Check steps. The database
 // enforces both, so this page only hides what someone can't do. Published versions never change.
 
 import * as api from "../api.js";
 import { escape, attr, formatDate, notice } from "../ui.js";
 import * as model from "../checklist-model.js";
+import { usedOn } from "../options-model.js";
 
+/** The checklist shown first: the original tractor (guidance) checklist. */
 const CHECKLIST_ID = "preseason-general";
 
 export function mountChecklist(root, { profile }) {
   const isOwner = profile.role === "owner";
   const state = {
+    /** Every version of every checklist; `rows` are the chosen checklist's. */
+    allRows: [],
+    templateId: CHECKLIST_ID,
     rows: [],
     live: null,
     draft: null,
@@ -33,6 +39,8 @@ export function mountChecklist(root, { profile }) {
       .filter((list) => state.options[list]?.length)
       .map((list) => [list, new Set(state.options[list].map((o) => o.value))]),
   );
+  /** The equipment type the open checklist is for (the original checklist has none: tractors). */
+  const equipment = () => state.content?.equipment ?? "tractor";
   const section = () => state.content?.sections[state.selected.section];
   const item = () => (state.selected.item == null ? null : section()?.items[state.selected.item]);
 
@@ -41,10 +49,18 @@ export function mountChecklist(root, { profile }) {
   /** Reads the checklist versions and option lists from the server into `state`. */
   async function fetchAll() {
     const [rows, options] = await Promise.all([api.loadChecklists(), api.loadOptions()]);
-    const ids = [...new Set(rows.map((row) => row.template_id))];
-    const id = ids.includes(CHECKLIST_ID) ? CHECKLIST_ID : ids[0];
-    state.rows = rows.filter((row) => row.template_id === id);
+    state.allRows = rows;
     state.options = options;
+    const ids = checklistIds();
+    if (!ids.includes(state.templateId)) state.templateId = ids.includes(CHECKLIST_ID) ? CHECKLIST_ID : ids[0];
+    openChecklist();
+  }
+
+  const checklistIds = () => [...new Set(state.allRows.map((row) => row.template_id))];
+
+  /** Shows the chosen checklist's draft, or its live version. */
+  function openChecklist() {
+    state.rows = state.allRows.filter((row) => row.template_id === state.templateId);
     state.live = model.liveVersion(state.rows);
     state.draft = state.rows.find((row) => row.status === "draft") ?? null;
     const source = state.draft ?? state.live;
@@ -126,6 +142,7 @@ export function mountChecklist(root, { profile }) {
          <button class="danger" data-action="discard"${attr("disabled", state.busy)}>Discard Draft</button>` : ""}`
       : `<button class="primary" data-action="start"${attr("disabled", state.busy || !live)}>Start Editing</button>`;
     return `
+      ${checklistSwitch()}
       <div class="toolbar">
         <div>
           <h1>${escape(state.content.title)}</h1>
@@ -137,6 +154,23 @@ export function mountChecklist(root, { profile }) {
         <div class="actions">${actions}</div>
       </div>
       ${draft && !isOwner ? `<p class="callout">As an admin you can change How to Check steps. An owner publishes the draft.</p>` : ""}`;
+  }
+
+  /** Tractor / Planter: one button per checklist, named for its equipment type. */
+  function checklistSwitch() {
+    const ids = checklistIds();
+    if (ids.length < 2) return "";
+    const types = state.options.equipment_type ?? [];
+    const name = (id) => {
+      const rows = state.allRows.filter((row) => row.template_id === id);
+      const content = (rows.find((row) => row.status === "draft") ?? model.liveVersion(rows) ?? rows[0])?.content;
+      const type = content?.equipment ?? "tractor";
+      return types.find((option) => option.value === type)?.label ?? content?.title ?? id;
+    };
+    return `
+      <div class="segmented" role="group" aria-label="Checklist">
+        ${ids.map((id) => `<button class="segment${id === state.templateId ? " active" : ""}" data-action="switch-checklist" data-id="${escape(id)}"${id === state.templateId ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${escape(name(id))}</button>`).join("")}
+      </div>`;
   }
 
   function problemsPanel() {
@@ -205,8 +239,9 @@ export function mountChecklist(root, { profile }) {
 
   function choices(list, field, selected, title) {
     const chosen = new Set(selected ?? []);
-    // Hidden options aren't offered, but stay visible while a check uses them.
-    const options = (state.options[list] ?? []).filter((option) => option.active || chosen.has(option.value));
+    // Hidden options and other equipment's options aren't offered, but stay visible while a check uses them.
+    const fits = (option) => option.active && (list !== "feature" || usedOn(option).includes(equipment()));
+    const options = (state.options[list] ?? []).filter((option) => fits(option) || chosen.has(option.value));
     if (options.length === 0) return `<p class="hint">${escape(title)}: no options on the server yet.</p>`;
     return `
       <div class="choices">
@@ -266,10 +301,10 @@ export function mountChecklist(root, { profile }) {
         <fieldset>
           <legend>Applies to</legend>
           <p class="hint">Leave a group empty to include every machine. The check appears only on machines that match every group you fill in.</p>
-          ${choices("guidance_system", "applies.systems", applies.systems, "Guidance systems")}
-          <label class="check"><input type="checkbox" data-field="applies.requiresAutoSteer"${attr("checked", applies.requiresAutoSteer === true)}${disabledUnless(all)}> Only machines with auto-steer</label>
-          ${choices("feature", "applies.features", applies.features, "Features (any marked Installed)")}
-          ${choices("correction_type", "applies.corrections", applies.corrections, "Correction types")}
+          ${equipment() === "tractor" || applies.systems ? choices("guidance_system", "applies.systems", applies.systems, "Guidance systems") : ""}
+          ${equipment() === "tractor" || applies.requiresAutoSteer ? `<label class="check"><input type="checkbox" data-field="applies.requiresAutoSteer"${attr("checked", applies.requiresAutoSteer === true)}${disabledUnless(all)}> Only machines with auto-steer</label>` : ""}
+          ${choices("feature", "applies.features", applies.features, equipment() === "tractor" ? "Features (any marked Installed)" : "Products (any marked Installed)")}
+          ${equipment() === "tractor" || applies.corrections ? choices("correction_type", "applies.corrections", applies.corrections, "Correction types") : ""}
         </fieldset>
 
         <fieldset>
@@ -409,6 +444,7 @@ export function mountChecklist(root, { profile }) {
 
     switch (action) {
       case "reload": return load();
+      case "switch-checklist": return switchChecklist(element.dataset.id);
       case "select-section": return select(s, null);
       case "select-item": return select(s, i);
       case "start": return startEditing();
@@ -475,6 +511,15 @@ export function mountChecklist(root, { profile }) {
         return render();
       }
     }
+  }
+
+  function switchChecklist(id) {
+    if (id === state.templateId) return;
+    if (isDirty() && !confirm("You have unsaved changes to this draft. Switch checklists without saving?")) return;
+    state.templateId = id;
+    state.selected = { section: 0, item: 0 };
+    openChecklist();
+    render();
   }
 
   // ---------------------------------------------------------------- drafts
