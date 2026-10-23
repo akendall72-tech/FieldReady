@@ -23,6 +23,15 @@ repository.
 The database enforces these rules (`supabase/migrations` in FieldReadyApp); the website only hides
 what someone can't do.
 
+## Security
+
+- `index.html` sets a content security policy: scripts, styles, and images only from this site,
+  and network calls only to Field Ready's Supabase project. Anything new from elsewhere (a font, a
+  library, another API) has to be added there, or it's blocked.
+- Libraries live in `vendor/`, checked against npm's checksum and pinned with an `integrity` hash.
+- GitHub Pages can't send security headers, and every Pages site under `akendall72-tech.github.io`
+  shares one browser origin (and so this site's stored sign-in). Give this site its own domain.
+
 ## How the checklist editor works
 
 - There's one checklist per equipment type. The **Tractor / Planter** switch picks which one to edit.
@@ -74,6 +83,7 @@ what someone can't do.
 | Path | What it is |
 |---|---|
 | `index.html`, `css/site.css` | The page and its look (the app's colors) |
+| `vendor/` | Supabase's browser library, kept here instead of loaded from a CDN (how to update: `vendor/README.md`) |
 | `js/config.js` | The Supabase address and **publishable** key. Both are meant to be public; never put a secret or service-role key here |
 | `js/api.js` | Sign-in and database calls |
 | `js/main.js` | Sign-in, who may use the site, header and pages |

@@ -1,8 +1,10 @@
 // Talking to the Field Ready database. Every request runs as the signed-in person, so the same
 // access rules as the app apply: the website can't do anything their role doesn't allow.
 
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
+
+// Loaded by index.html from vendor/ (this site's own copy), before this module runs.
+const { createClient } = globalThis.supabase;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
