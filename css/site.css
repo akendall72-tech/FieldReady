@@ -208,14 +208,33 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 .handover { border-color: var(--field-green); }
 .handover .password { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
 .handover .password code { font-size: 1.4rem; padding: 6px 12px; letter-spacing: 0.04em; }
-.store { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 16px; align-items: end; border-top: 1px solid var(--hairline); padding: 6px 0 10px; }
+.store { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 16px; align-items: end; border-top: 1px solid var(--hairline); padding: 6px 0 10px; }
+.store .link { margin-bottom: 6px; }
+.store-contacts { grid-column: 1 / -1; }
+.contacts fieldset { margin-top: 12px; }
+.contact-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 0 12px; align-items: end; }
+.contact-row .tools, .contact-row > button { margin-bottom: 4px; }
+.contact-row.new { background: var(--surface-tint); border-radius: var(--radius); padding: 0 10px 10px; margin-top: 8px; }
+.filters { display: flex; flex-wrap: wrap; gap: 0 16px; align-items: end; }
+.filters label:first-child { flex: 1; min-width: 200px; }
+.filters label.check { margin-bottom: 10px; }
+.customer-list, .login-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.customer { border-top: 1px solid var(--hairline); padding: 12px 0; }
+.customer:first-child { border-top: none; }
+.customer-head { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
+.login { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; align-items: center; padding: 6px 0 6px 14px; border-left: 3px solid var(--surface-tint); margin-top: 6px; }
+.login.off strong { color: var(--text-secondary); }
+.login .hint { margin: 0 0 0 6px; }
+.login-form { background: var(--surface-tint); border-radius: var(--radius); padding: 4px 14px 14px; margin-top: 10px; }
+.login-form .actions { display: flex; gap: 8px; margin-top: 8px; }
 .store:first-child { border-top: none; }
 .store label.check { margin-bottom: 10px; }
 .store .hint { margin-bottom: 12px; }
 .store.off .store-name input { color: var(--text-secondary); }
 
 @media (max-width: 860px) {
-  .person, .store { grid-template-columns: 1fr; }
+  .person, .store, .contact-row { grid-template-columns: 1fr; }
+  .customer-head { flex-direction: column; }
   .option-settings { grid-template-columns: 1fr; }
   .editor { grid-template-columns: 1fr; }
   .outline { position: static; max-height: none; }

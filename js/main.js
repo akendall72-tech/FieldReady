@@ -5,6 +5,7 @@ import { escape } from "./ui.js";
 import { mountChecklist } from "./views/checklist.js";
 import { mountOptions } from "./views/options.js";
 import { mountPeople } from "./views/people.js";
+import { mountCustomers } from "./views/customers.js";
 
 const root = document.getElementById("app");
 
@@ -12,6 +13,7 @@ const PAGES = [
   { id: "checklist", label: "Inspection checklist", mount: mountChecklist },
   { id: "options", label: "Machine options", mount: mountOptions },
   { id: "people", label: "People & stores", mount: mountPeople },
+  { id: "customers", label: "Customers", mount: mountCustomers },
 ];
 
 /** The page named in the address (#options), or the checklist. */

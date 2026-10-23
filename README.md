@@ -1,7 +1,7 @@
 # Field Ready Admin
 
 The website owners and admins use to manage Field Ready: the inspection checklists, machine
-options, and people & stores. It's plain HTML, CSS, and JavaScript that talks straight to the
+options, people & stores (with each store's contacts for customers), and customers' app logins. It's plain HTML, CSS, and JavaScript that talks straight to the
 Field Ready Supabase project, so there's nothing to build or run on a server. GitHub Pages serves
 it from this repository.
 
@@ -17,6 +17,8 @@ repository.
 | Machine options | Edit everything | Look only | — |
 | People | Add and change anyone; reset passwords | Add employees to their store; turn their access off or on; reset their passwords | — |
 | Stores | Add, rename, stop using | — | — |
+| Store contacts | Every store's | Their own store's | — |
+| Customer logins | Every customer's | Their own store's customers' | — |
 
 The database enforces these rules (`supabase/migrations` in FieldReadyApp); the website only hides
 what someone can't do.
@@ -58,6 +60,15 @@ what someone can't do.
 - Changes to someone's store, role, or access reach their app the next time they open it. Nobody can
   turn off their own access, and the only owner stays an owner.
 
+## How the customers page works
+
+- **Add Login** gives a customer's person an app login (a farm can have several). It shows a
+  temporary password once; they choose their own the first time they sign in.
+- A customer login sees only that customer's equipment, completed inspections with reports,
+  subscriptions, and who to contact at their store. It can't change anything.
+- Each store's contacts (PTx Product Specialists, Sales, Customer Service, Service) are edited under
+  **People & stores › Stores › Contacts**; admins see their own store's contacts there.
+
 ## Files
 
 | Path | What it is |
@@ -69,7 +80,9 @@ what someone can't do.
 | `js/views/checklist.js` | The checklist editor |
 | `js/checklist-model.js` | Checklist rules (validation, versions, keys), tested on their own |
 | `js/views/options.js` | The machine options editor |
-| `js/views/people.js` | The people and stores page |
+| `js/views/people.js` | The people and stores page, with each store's contacts |
+| `js/views/customers.js` | The customers page (app logins for customers) |
+| `js/customers-model.js` | Customer login and store contact rules; tested on their own |
 | `js/people-model.js` | Who may change whom, the add form's rules, temporary passwords; tested on their own |
 | `js/options-model.js` | Option rules (lists and their settings, new values, ordering, changes), tested on their own |
 | `tests/*.test.mjs` | Tests for those rules |
@@ -88,6 +101,10 @@ The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/people-model.test.mjs
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/customers-model.test.mjs
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open

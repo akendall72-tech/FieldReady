@@ -1,5 +1,6 @@
-// The People & stores page: who can sign in to Field Ready, with what role, at which store; and the
-// stores themselves.
+// The People & stores page: who can sign in to Field Ready, with what role, at which store; the
+// stores themselves; and each store's contacts for customers. Customer logins are on the
+// Customers page.
 //
 // Owners manage everyone and every store. Admins manage the employees at their own store. New logins
 // and password resets go through the `people` server function (they need Supabase's secret key);
@@ -8,15 +9,24 @@
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import * as model from "../people-model.js";
+import { canEditContacts, contactGroups, contactProblems } from "../customers-model.js";
 
 export function mountPeople(root, { profile }) {
   const isOwner = profile.role === "owner";
   const viewer = { id: profile.id, role: profile.role, location_id: profile.location_id };
   const blankPerson = () => ({ full_name: "", email: "", role: "employee", location_id: isOwner ? "" : profile.location_id });
   const state = {
+    /** Staff only; `everyone` and `allInvitations` include customer logins, so no email is used twice. */
     people: [],
+    everyone: [],
     invitations: [],
+    allInvitations: [],
     stores: [],
+    contacts: [],
+    /** The store whose contacts are open (owners pick one; admins see their own). */
+    contactsStore: isOwner ? null : profile.location_id,
+    /** A contact being added: its store, role, and details so far. */
+    newContact: null,
     /** Owners: the store whose people are shown, or "" for everyone. */
     filter: "",
     /** The person being edited, and the edits so far. */
@@ -39,10 +49,15 @@ export function mountPeople(root, { profile }) {
   // ---------------------------------------------------------------- loading
 
   async function fetchAll() {
-    const [people, invitations, stores] = await Promise.all([api.loadPeople(), api.loadInvitations(), api.loadStores()]);
-    state.people = model.sortPeople(people);
-    state.invitations = invitations;
+    const [people, invitations, stores, contacts] = await Promise.all([
+      api.loadPeople(), api.loadInvitations(), api.loadStores(), api.loadContacts(),
+    ]);
+    state.everyone = people;
+    state.people = model.sortPeople(people.filter((person) => person.role !== "customer"));
+    state.allInvitations = invitations;
+    state.invitations = invitations.filter((invite) => invite.role !== "customer");
     state.stores = stores;
+    state.contacts = contacts;
     state.loadError = null;
   }
 
@@ -83,7 +98,98 @@ export function mountPeople(root, { profile }) {
       ${state.adding ? addForm() : ""}
       ${peopleCard()}
       ${waitingCard()}
-      ${isOwner ? storesCard() : ""}`;
+      ${isOwner ? storesCard() : ""}
+      ${!isOwner && canEditContacts(viewer, profile.location_id) ? `
+        <div class="card">
+          <h2>Contacts for customers</h2>
+          <p class="hint">Customers of ${escape(storeName(profile.location_id))} see these people on their app's Home screen.</p>
+          ${contactsPanel(profile.location_id)}
+        </div>` : ""}`;
+  }
+
+  // ---------------------------------------------------------------- store contacts
+
+  function contactsPanel(storeId) {
+    const editable = canEditContacts(viewer, storeId);
+    return `
+      <div class="contacts">
+        ${contactGroups(state.contacts, storeId).map((group) => `
+          <fieldset>
+            <legend>${escape(group.label)}</legend>
+            ${group.contacts.length ? group.contacts.map((contact) => contactRow(contact, editable)).join("") : '<p class="hint">Nobody yet.</p>'}
+            ${state.newContact?.location_id === storeId && state.newContact.role === group.value
+              ? newContactRow()
+              : editable ? `<button class="add" data-action="add-contact" data-store="${escape(storeId)}" data-role="${group.value}"${attr("disabled", state.busy)}>+ Add ${escape(group.label)}</button>` : ""}
+          </fieldset>`).join("")}
+      </div>`;
+  }
+
+  function contactRow(contact, editable) {
+    const id = escape(contact.id);
+    const disabled = attr("disabled", !editable || state.busy);
+    return `
+      <div class="contact-row">
+        <label>Name <input data-contact="${id}" data-contact-field="name" value="${escape(contact.name)}"${disabled}></label>
+        <label>Phone <input data-contact="${id}" data-contact-field="phone" type="tel" value="${escape(contact.phone)}"${disabled}></label>
+        <label>Email <input data-contact="${id}" data-contact-field="email" type="email" value="${escape(contact.email)}"${disabled}></label>
+        ${editable ? `<button class="danger" data-action="remove-contact" data-id="${id}"${attr("disabled", state.busy)}>Remove</button>` : ""}
+      </div>`;
+  }
+
+  function newContactRow() {
+    const contact = state.newContact;
+    return `
+      <div class="contact-row new">
+        <label>Name <input data-new-contact="name" value="${escape(contact.name)}" autocomplete="off"></label>
+        <label>Phone <input data-new-contact="phone" type="tel" value="${escape(contact.phone)}" autocomplete="off"></label>
+        <label>Email <input data-new-contact="email" type="email" value="${escape(contact.email)}" autocomplete="off"></label>
+        <span class="tools">
+          <button class="primary" data-action="save-new-contact"${attr("disabled", state.busy)}>Save</button>
+          <button class="secondary" data-action="cancel-contact">Cancel</button>
+        </span>
+      </div>`;
+  }
+
+  function saveContactField(id, field, value) {
+    const contact = state.contacts.find((c) => c.id === id);
+    if (!contact || contact[field] === value.trim()) return;
+    const changed = { ...contact, [field]: value };
+    const problems = contactProblems(changed);
+    if (problems.length) {
+      notice(root, problems[0], "error");
+      return;
+    }
+    return run(async () => {
+      await api.saveContact(changed);
+      await fetchAll();
+      return `Saved ${changed.name.trim()}. Customers see the change at their next sync.`;
+    });
+  }
+
+  function saveNewContact() {
+    const contact = state.newContact;
+    const problems = contactProblems(contact);
+    if (problems.length) {
+      notice(root, problems[0], "error");
+      return;
+    }
+    const sameGroup = state.contacts.filter((c) => c.location_id === contact.location_id && c.role === contact.role);
+    return run(async () => {
+      await api.saveContact({ ...contact, organization_id: profile.organization_id, sort_order: sameGroup.length });
+      state.newContact = null;
+      await fetchAll();
+      return `Added ${contact.name.trim()}. Customers see them at their next sync.`;
+    });
+  }
+
+  function removeContact(id) {
+    const contact = state.contacts.find((c) => c.id === id);
+    if (!contact || !confirm(`Remove ${contact.name} from ${storeName(contact.location_id)}'s contacts?`)) return;
+    return run(async () => {
+      await api.deleteContact(id);
+      await fetchAll();
+      return `Removed ${contact.name}.`;
+    });
   }
 
   function handoverCard() {
@@ -114,7 +220,7 @@ export function mountPeople(root, { profile }) {
 
   function addForm() {
     const person = state.newPerson;
-    const problems = model.newPersonProblems(person, viewer, state.people, state.invitations);
+    const problems = model.newPersonProblems(person, viewer, state.everyone, state.allInvitations);
     const isNewOwner = person.role === "owner";
     return `
       <form class="card" data-add-form>
@@ -224,16 +330,21 @@ export function mountPeople(root, { profile }) {
 
   function storesCard() {
     const count = (id) => state.people.filter((person) => person.location_id === id && person.active).length;
+    const contactCount = (id) => state.contacts.filter((contact) => contact.location_id === id).length;
     return `
       <div class="card">
         <h2>Stores</h2>
-        <p class="hint">A store that's turned off disappears from the app's store pickers. Its machines, people, and history stay.</p>
+        <p class="hint">A store that's turned off disappears from the app's store pickers. Its machines, people, and history stay.
+          Each store's contacts are who its customers see on their app's Home screen.</p>
         <ol class="store-list">
           ${state.stores.map((store) => `
             <li class="store${store.active ? "" : " off"}">
               <label class="store-name">Name <input data-store-name="${escape(store.id)}" value="${escape(store.name)}"${attr("disabled", state.busy)}></label>
               <label class="check"><input type="checkbox" data-store-active="${escape(store.id)}"${attr("checked", store.active)}${attr("disabled", state.busy)}> In use</label>
               <span class="hint">${count(store.id)} ${count(store.id) === 1 ? "person" : "people"}</span>
+              <button class="link" data-action="toggle-contacts" data-store="${escape(store.id)}"${attr("aria-expanded", state.contactsStore === store.id)}>
+                ${state.contactsStore === store.id ? "Hide contacts" : `Contacts (${contactCount(store.id)})`}</button>
+              ${state.contactsStore === store.id ? `<div class="store-contacts">${contactsPanel(store.id)}</div>` : ""}
             </li>`).join("")}
         </ol>
         <form class="add-option" data-add-store>
@@ -247,7 +358,7 @@ export function mountPeople(root, { profile }) {
 
   /** Keeps the add form's button and first problem current without redrawing (typing isn't interrupted). */
   function refreshAddForm() {
-    const problems = model.newPersonProblems(state.newPerson, viewer, state.people, state.invitations);
+    const problems = model.newPersonProblems(state.newPerson, viewer, state.everyone, state.allInvitations);
     const area = root.querySelector("[data-new-problems]");
     if (area) area.textContent = state.newPerson.email || state.newPerson.full_name ? problems[0] ?? "" : "";
     const submit = root.querySelector("[data-submit]");
@@ -270,6 +381,10 @@ export function mountPeople(root, { profile }) {
       }
       return refreshAddForm();
     }
+    if (element.dataset.newContact && state.newContact) {
+      state.newContact[element.dataset.newContact] = element.value;
+      return;
+    }
     if (element.dataset.edit && state.edits) {
       const field = element.dataset.edit;
       state.edits[field] = element.type === "checkbox" ? element.checked : element.value;
@@ -283,6 +398,7 @@ export function mountPeople(root, { profile }) {
   async function onChange(event) {
     onInput(event);
     const element = event.target;
+    if (element.dataset.contact) return saveContactField(element.dataset.contact, element.dataset.contactField, element.value);
     if (element.dataset.storeName) return renameStore(element.dataset.storeName, element.value);
     if (element.dataset.storeActive) return setStoreActive(element.dataset.storeActive, element.checked, element);
   }
@@ -328,6 +444,20 @@ export function mountPeople(root, { profile }) {
       case "save-person": return savePerson(person);
       case "reset-password": return resetPassword(person);
       case "cancel-invite": return cancelInvitation(element.dataset.email);
+      case "toggle-contacts":
+        state.contactsStore = state.contactsStore === element.dataset.store ? null : element.dataset.store;
+        state.newContact = null;
+        return render();
+      case "add-contact":
+        state.newContact = { location_id: element.dataset.store, role: element.dataset.role, name: "", phone: "", email: "" };
+        render();
+        root.querySelector('[data-new-contact="name"]')?.focus();
+        return;
+      case "cancel-contact":
+        state.newContact = null;
+        return render();
+      case "save-new-contact": return saveNewContact();
+      case "remove-contact": return removeContact(element.dataset.id);
       case "dismiss-handover":
         state.handover = null;
         return render();
@@ -363,7 +493,7 @@ export function mountPeople(root, { profile }) {
 
   function addPerson() {
     const person = state.newPerson;
-    if (model.newPersonProblems(person, viewer, state.people, state.invitations).length) return;
+    if (model.newPersonProblems(person, viewer, state.everyone, state.allInvitations).length) return;
     const password = model.temporaryPassword();
     const email = person.email.trim().toLowerCase();
     const name = person.full_name.trim();
@@ -463,7 +593,7 @@ export function mountPeople(root, { profile }) {
   /** Whether it's fine to leave: nothing half-entered, or the person agrees to lose it. */
   return (silent = false) => {
     const busy = state.adding && (state.newPerson.email || state.newPerson.full_name);
-    const unsaved = busy || state.editing;
+    const unsaved = busy || state.editing || (state.newContact && state.newContact.name);
     return !unsaved || (!silent && confirm("You have an unfinished change on this page. Leave without saving?"));
   };
 }

@@ -149,7 +149,7 @@ export async function discardDraft(draft) {
 export async function loadPeople() {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, updated_at, created_at")
+    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, updated_at, created_at")
     .order("full_name", { ascending: true }));
 }
 
@@ -157,7 +157,7 @@ export async function loadPeople() {
 export async function loadInvitations() {
   return unwrap(await supabase
     .from("invitations")
-    .select("email, full_name, role, location_id, created_at")
+    .select("email, full_name, role, location_id, customer_id, created_at")
     .order("created_at", { ascending: true }));
 }
 
@@ -211,4 +211,41 @@ export async function callPeople(action, payload) {
     throw new Error("Couldn't reach the people server function. If it hasn't been deployed yet, deploy it in Supabase (see supabase/README.md in the app repository); otherwise check your connection.");
   }
   throw error;
+}
+
+// ---------------------------------------------------------------- customers and store contacts
+
+/** Customers this person may see (owners: everyone; admins: their store), with their machine count. */
+export async function loadCustomers() {
+  return unwrap(await supabase
+    .from("customers")
+    .select("id, name, email, phone, location_id, archived_at, machines(count)")
+    .order("name", { ascending: true }));
+}
+
+/** Every store's contacts for customers. */
+export async function loadContacts() {
+  return unwrap(await supabase
+    .from("store_contacts")
+    .select("id, organization_id, location_id, role, name, phone, email, sort_order, updated_at")
+    .order("sort_order", { ascending: true }));
+}
+
+const CONTACT_COLUMNS = ["organization_id", "location_id", "role", "name", "phone", "email", "sort_order"];
+
+/** Adds a contact (no id yet) or saves changes to one. */
+export async function saveContact(contact) {
+  const values = Object.fromEntries(CONTACT_COLUMNS.map((column) => [column, contact[column] ?? ""]));
+  values.name = String(values.name).trim();
+  values.phone = String(values.phone).trim();
+  values.email = String(values.email).trim().toLowerCase();
+  const query = contact.id
+    ? supabase.from("store_contacts").update(values).eq("id", contact.id).select("id")
+    : supabase.from("store_contacts").insert(values).select("id");
+  const rows = unwrap(await query);
+  if (rows.length === 0) throw new Error("Your access doesn't allow changing that store's contacts.");
+}
+
+export async function deleteContact(id) {
+  unwrap(await supabase.from("store_contacts").delete().eq("id", id));
 }
