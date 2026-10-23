@@ -188,7 +188,34 @@ legend { font-weight: 700; padding: 0 6px; }
 .add-option { display: flex; gap: 12px; align-items: flex-end; border-top: 1px solid var(--hairline); margin-top: 12px; padding-top: 4px; }
 .add-option label { flex: 1; }
 
+/* ---------- people and stores */
+
+.person-list, .store-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.person { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) auto; gap: 6px 16px; align-items: center; border-top: 1px solid var(--hairline); padding: 12px 0; }
+.person:first-child { border-top: none; }
+.person-main { display: flex; flex-direction: column; min-width: 0; }
+.person-main .hint { margin: 0; overflow-wrap: anywhere; }
+.person-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; color: var(--text-secondary); font-size: 0.9rem; }
+.person.off .person-main strong { color: var(--text-secondary); }
+.person.editing { display: block; }
+.person.editing .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.role { font-weight: 700; font-size: 0.8rem; border-radius: 6px; padding: 1px 8px; background: var(--surface-tint); color: var(--pine); }
+.role-owner { background: var(--pine); color: #fff; }
+.access-off { font-weight: 700; font-size: 0.8rem; color: var(--fault-red); }
+label.inline { display: flex; gap: 8px; align-items: center; margin: 0; }
+label.inline select { width: auto; margin: 0; }
+form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
+.handover { border-color: var(--field-green); }
+.handover .password { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
+.handover .password code { font-size: 1.4rem; padding: 6px 12px; letter-spacing: 0.04em; }
+.store { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 16px; align-items: end; border-top: 1px solid var(--hairline); padding: 6px 0 10px; }
+.store:first-child { border-top: none; }
+.store label.check { margin-bottom: 10px; }
+.store .hint { margin-bottom: 12px; }
+.store.off .store-name input { color: var(--text-secondary); }
+
 @media (max-width: 860px) {
+  .person, .store { grid-template-columns: 1fr; }
   .option-settings { grid-template-columns: 1fr; }
   .editor { grid-template-columns: 1fr; }
   .outline { position: static; max-height: none; }

@@ -1,7 +1,7 @@
 # Field Ready Admin
 
-The website owners and admins use to manage Field Ready: the inspection checklist and machine
-options now, people & stores next. It's plain HTML, CSS, and JavaScript that talks straight to the
+The website owners and admins use to manage Field Ready: the inspection checklists, machine
+options, and people & stores. It's plain HTML, CSS, and JavaScript that talks straight to the
 Field Ready Supabase project, so there's nothing to build or run on a server. GitHub Pages serves
 it from this repository.
 
@@ -15,6 +15,8 @@ repository.
 | Sign in | Yes | Yes | No (they use the app) |
 | Inspection checklist | Edit everything, publish | Edit How to Check steps in the draft | — |
 | Machine options | Edit everything | Look only | — |
+| People | Add and change anyone; reset passwords | Add employees to their store; turn their access off or on; reset their passwords | — |
+| Stores | Add, rename, stop using | — | — |
 
 The database enforces these rules (`supabase/migrations` in FieldReadyApp); the website only hides
 what someone can't do.
@@ -47,6 +49,15 @@ what someone can't do.
   types they're **used on**; a planter's features are its Precision Planting products.
 - Saving never overwrites an option someone else saved since you opened the page.
 
+## How the people page works
+
+- **Add Person** creates the person's login and shows a temporary password once, to give them.
+  They sign in to the app with it and change it in Settings › Change Password.
+- Logins are created by the `people` server function in Supabase (its code is in the app's
+  repository). It holds the secret key that creating logins needs; this site never has it.
+- Changes to someone's store, role, or access reach their app the next time they open it. Nobody can
+  turn off their own access, and the only owner stays an owner.
+
 ## Files
 
 | Path | What it is |
@@ -58,6 +69,8 @@ what someone can't do.
 | `js/views/checklist.js` | The checklist editor |
 | `js/checklist-model.js` | Checklist rules (validation, versions, keys), tested on their own |
 | `js/views/options.js` | The machine options editor |
+| `js/views/people.js` | The people and stores page |
+| `js/people-model.js` | Who may change whom, the add form's rules, temporary passwords; tested on their own |
 | `js/options-model.js` | Option rules (lists and their settings, new values, ordering, changes), tested on their own |
 | `tests/*.test.mjs` | Tests for those rules |
 
@@ -71,6 +84,10 @@ The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/options-model.test.mjs -- ../FieldReady/supabase/seed/default_catalog.sql
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/people-model.test.mjs
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open

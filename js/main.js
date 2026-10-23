@@ -4,13 +4,14 @@ import { supabase, signIn, signOut, loadProfile, describe } from "./api.js";
 import { escape } from "./ui.js";
 import { mountChecklist } from "./views/checklist.js";
 import { mountOptions } from "./views/options.js";
+import { mountPeople } from "./views/people.js";
 
 const root = document.getElementById("app");
 
 const PAGES = [
   { id: "checklist", label: "Inspection checklist", mount: mountChecklist },
   { id: "options", label: "Machine options", mount: mountOptions },
-  { id: "people", label: "People & stores", note: "Coming next" },
+  { id: "people", label: "People & stores", mount: mountPeople },
 ];
 
 /** The page named in the address (#options), or the checklist. */

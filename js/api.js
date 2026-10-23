@@ -14,7 +14,9 @@ export class SaveConflict extends Error {}
 export function describe(error) {
   if (!error) return "Something went wrong.";
   if (error.message === "Invalid login credentials") return "That email and password don't match.";
-  if (error.code === "42501") return "Your access doesn't allow that.";
+  // Access rules give a general message; the database's own checks explain themselves.
+  if (error.code === "42501") return /row-level security/i.test(error.message ?? "") ? "Your access doesn't allow that." : error.message;
+  if (error.code === "23514") return error.message;
   if (error.code === "23505") return "Someone else already started a draft. Reload to see it.";
   if (error instanceof TypeError || /fetch|network/i.test(error.message ?? "")) {
     return "Can't reach the server. Check your connection and try again.";
@@ -139,4 +141,74 @@ export async function publishDraft(draft) {
 
 export async function discardDraft(draft) {
   unwrap(await supabase.from("inspection_templates").delete().eq("id", draft.id));
+}
+
+// ---------------------------------------------------------------- people and stores
+
+/** Everyone this person may see (owners: everyone; admins: their store). */
+export async function loadPeople() {
+  return unwrap(await supabase
+    .from("profiles")
+    .select("id, full_name, email, role, active, location_id, updated_at, created_at")
+    .order("full_name", { ascending: true }));
+}
+
+/** Invitations that haven't become logins (made before the website, or interrupted). */
+export async function loadInvitations() {
+  return unwrap(await supabase
+    .from("invitations")
+    .select("email, full_name, role, location_id, created_at")
+    .order("created_at", { ascending: true }));
+}
+
+export async function loadStores() {
+  return unwrap(await supabase
+    .from("locations")
+    .select("id, name, active, created_at")
+    .order("name", { ascending: true }));
+}
+
+/**
+ * Saves changes to a person unless someone else saved them since they were loaded. Nothing changing
+ * also means the access rules didn't allow it.
+ */
+export async function savePerson(person, changes) {
+  const rows = unwrap(await supabase
+    .from("profiles")
+    .update(changes)
+    .eq("id", person.id)
+    .eq("updated_at", person.updated_at)
+    .select("id"));
+  if (rows.length === 0) throw new SaveConflict(`Someone else changed ${person.full_name || person.email} since you opened this page, or your access doesn't allow that change.`);
+}
+
+export async function cancelInvitation(email) {
+  unwrap(await supabase.from("invitations").delete().eq("email", email));
+}
+
+export async function addStore(organizationId, name) {
+  const { error } = await supabase.from("locations").insert({ organization_id: organizationId, name: name.trim() });
+  if (error?.code === "23505") throw new Error(`There's already a store called “${name.trim()}”.`);
+  if (error) throw error;
+}
+
+export async function saveStore(store, changes) {
+  const { error } = await supabase.from("locations").update(changes).eq("id", store.id);
+  if (error?.code === "23505") throw new Error(`There's already a store called “${changes.name}”.`);
+  if (error) throw error;
+}
+
+/**
+ * The `people` server function: creates logins and resets passwords (they need Supabase's secret
+ * key, which only the function has). Returns its answer, or throws its plain-words error.
+ */
+export async function callPeople(action, payload) {
+  const { data, error } = await supabase.functions.invoke("people", { body: { action, ...payload } });
+  if (!error) return data;
+  const answer = await error.context?.json?.().catch(() => null);
+  if (answer?.error) throw new Error(answer.error);
+  if (error.context?.status === 404 || error.name === "FunctionsFetchError") {
+    throw new Error("Couldn't reach the people server function. If it hasn't been deployed yet, deploy it in Supabase (see supabase/README.md in the app repository); otherwise check your connection.");
+  }
+  throw error;
 }
