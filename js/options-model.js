@@ -124,6 +124,7 @@ export const SYMBOLS = [
   { value: "bolt", label: "Power" },
   { value: "cable.connector", label: "Cable" },
   { value: "shippingbox", label: "Box" },
+  { value: "leaf", label: "Leaf" },
 ];
 
 export const listInfo = (id) => LISTS.find((list) => list.id === id);
