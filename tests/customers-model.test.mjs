@@ -4,7 +4,7 @@
 //   $JSC -m tests/customers-model.test.mjs
 
 import {
-  CONTACT_ROLES, canManageCustomer, canEditContacts, loginsFor, newLogin, newLoginProblems, filterCustomers,
+  CONTACT_ROLES, canManageCustomer, canEditContacts, loginsFor, newLogin, newLoginProblems,
   contactGroups, contactProblems,
 } from "../js/customers-model.js";
 
@@ -20,7 +20,6 @@ const admin = { id: "admin", role: "admin", location_id: "north" };
 const employee = { id: "tech", role: "employee", location_id: "north" };
 const farmA = { id: "a", name: "Hillcrest Farms", email: "Office@Hillcrest.example", phone: "555-0142", location_id: "north" };
 const farmB = { id: "b", name: "Prairie Creek Ag", email: "", phone: "", location_id: "south" };
-const archived = { id: "c", name: "Old Farm", email: "", phone: "", location_id: "north", archived_at: "2026-10-01" };
 const people = [
   { id: "l1", role: "customer", customer_id: "a", full_name: "Hank Hill", email: "hank@hillcrest.example" },
   { id: "l2", role: "customer", customer_id: "a", full_name: "Ann Hill", email: "ann@hillcrest.example" },
@@ -44,14 +43,6 @@ check("a complete login is fine", newLoginProblems({ full_name: "Hank", email: "
 check("emails already used are caught", newLoginProblems({ full_name: "Hank", email: "HANK@hillcrest.example" }, people).includes("That email already has a Field Ready login."));
 check("waiting invitations are caught", newLoginProblems({ full_name: "Hank", email: "w@x.example" }, people, [{ email: "w@x.example" }]).some((p) => p.includes("waiting")));
 check("customers without an email need one entered", newLoginProblems(newLogin(farmB), people).includes("Enter a valid email address."));
-
-// Finding customers
-const all = [farmB, archived, farmA];
-check("customers are listed by name, archived ones hidden", filterCustomers(all).map((c) => c.id).join() === "a,b");
-check("search matches name, email, or phone", filterCustomers(all, { search: "0142" }).map((c) => c.id).join() === "a"
-  && filterCustomers(all, { search: "prairie ag" }).map((c) => c.id).join() === "b");
-check("a store filter keeps that store's customers", filterCustomers(all, { store: "south" }).map((c) => c.id).join() === "b");
-check("archived customers can be shown", filterCustomers(all, { archived: true }).length === 3);
 
 // Contacts
 const contacts = [

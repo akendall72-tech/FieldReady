@@ -217,12 +217,26 @@ export async function callPeople(action, payload) {
 
 // ---------------------------------------------------------------- customers and store contacts
 
-/** Customers this person may see (owners: everyone; admins: their store), with their machine count. */
+/**
+ * Every row of a query, page by page until an empty page (the server may cap how many rows one
+ * answer holds). `query` builds the query fresh for each page.
+ */
+async function loadAll(query, pageSize = 500) {
+  const rows = [];
+  while (true) {
+    const page = unwrap(await query().range(rows.length, rows.length + pageSize - 1));
+    if (page.length === 0) return rows;
+    rows.push(...page);
+  }
+}
+
+/** Customers this person may see (owners: everyone; staff: their store). */
 export async function loadCustomers() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("customers")
-    .select("id, name, email, phone, location_id, archived_at, machines(count)")
-    .order("name", { ascending: true }));
+    .select("id, organization_id, name, email, phone, location_id, archived_at, updated_at")
+    .order("name", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /** Every store's contacts for customers. */
@@ -250,4 +264,116 @@ export async function saveContact(contact) {
 
 export async function deleteContact(id) {
   unwrap(await supabase.from("store_contacts").delete().eq("id", id));
+}
+
+// ---------------------------------------------------------------- customers and machines
+
+const MACHINE_LIST_COLUMNS = "id, organization_id, customer_id, location_id, equipment_type, manufacturer, model_name, model_year, serial_number, archived_at, updated_at";
+
+/** Every machine this person may see, with how many finalized inspections each has. */
+export async function loadMachines() {
+  return (await loadAll(() => supabase
+    .from("machines")
+    .select(`${MACHINE_LIST_COLUMNS}, finalized:inspections(count)`)
+    .eq("finalized.status", "finalized")
+    .order("manufacturer", { ascending: true })
+    .order("id", { ascending: true })))
+    .map((machine) => ({ ...machine, finalized: machine.finalized?.[0]?.count ?? 0 }));
+}
+
+/** One machine with its components, features, and subscriptions. */
+export async function loadMachine(id) {
+  const machine = unwrap(await supabase
+    .from("machines")
+    .select("*, finalized:inspections(count), technology_components(*), installed_features(*), correction_subscriptions(*)")
+    .eq("id", id)
+    .eq("finalized.status", "finalized")
+    .maybeSingle());
+  if (!machine) throw new Error("That machine isn't there any more, or your access doesn't include it.");
+  return { ...machine, finalized: machine.finalized?.[0]?.count ?? 0 };
+}
+
+/** Plain words for a refused delete: finalized inspections are permanent records. */
+function explainDelete(error, what) {
+  if (error?.code === "23503") return new Error(`This ${what} has finalized inspections, so it can't be deleted. Archive it instead.`);
+  return error;
+}
+
+/**
+ * Adds a record (no id yet) or saves changes to one, unless someone else saved it since it was
+ * loaded (SaveConflict). Returns the saved row.
+ */
+async function saveRecord(table, record, values, label) {
+  if (!record.id) {
+    const { data, error } = await supabase.from(table).insert({ id: crypto.randomUUID(), organization_id: record.organization_id, ...values }).select().single();
+    if (error) throw error;
+    return data;
+  }
+  const rows = unwrap(await supabase.from(table).update(values).eq("id", record.id).eq("updated_at", record.updated_at).select());
+  if (rows.length === 0) throw new SaveConflict(`Someone else changed ${label} since you opened it, or your access doesn't allow that change.`);
+  return rows[0];
+}
+
+export const saveCustomer = (customer, values) => saveRecord("customers", customer, values, customer.name || "this customer");
+export const saveMachine = (machine, values) => saveRecord("machines", machine, values, "this machine");
+
+/** Archives (or brings back) a customer or machine. Only owners and admins can; for others the server keeps the date as it was. */
+export async function setArchived(table, record, archived) {
+  const rows = unwrap(await supabase.from(table).update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", record.id).eq("updated_at", record.updated_at).select("id, archived_at"));
+  if (rows.length === 0) throw new SaveConflict("Someone else changed this since you opened it.");
+  if (Boolean(rows[0].archived_at) !== archived) throw new Error("Only owners, and admins at this store, can archive or bring back.");
+}
+
+async function deleteRecord(table, id, what) {
+  const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
+  if (error) throw explainDelete(error, what);
+  if (!data?.length) throw new Error(`The ${what} wasn't deleted. Your access may not allow it.`);
+}
+
+/**
+ * Draft inspections go first, as the app does it: the server keeps a machine while any inspection
+ * points to it. Finalized ones stay, so the delete that follows is refused if there are any.
+ */
+async function deleteDrafts(machineIds) {
+  if (machineIds.length) unwrap(await supabase.from("inspections").delete().in("machine_id", machineIds).eq("status", "draft"));
+}
+
+export async function deleteCustomer(id) {
+  const machines = unwrap(await supabase.from("machines").select("id").eq("customer_id", id));
+  await deleteDrafts(machines.map((machine) => machine.id));
+  await deleteRecord("customers", id, "customer");
+}
+
+export async function deleteMachine(id) {
+  await deleteDrafts([id]);
+  await deleteRecord("machines", id, "machine");
+}
+
+const COMPONENT_COLUMNS = ["kind", "model_name", "serial_number", "firmware_version", "correction_level", "verification", "notes"];
+const SUBSCRIPTION_COLUMNS = ["provider", "service_name", "correction_type", "account_reference", "expiration_date", "source", "checked_on", "notes"];
+
+async function saveChild(table, columns, machineId, row) {
+  const values = Object.fromEntries(columns.map((column) => [column, row[column] ?? null]));
+  const query = row.id
+    ? supabase.from(table).update(values).eq("id", row.id).select("id")
+    : supabase.from(table).insert({ id: crypto.randomUUID(), machine_id: machineId, ...values }).select("id");
+  const rows = unwrap(await query);
+  if (rows.length === 0) throw new Error("That wasn't saved. Your access may not allow it.");
+}
+
+export const saveComponent = (machineId, component) => saveChild("technology_components", COMPONENT_COLUMNS, machineId, component);
+export const saveSubscription = (machineId, subscription) => saveChild("correction_subscriptions", SUBSCRIPTION_COLUMNS, machineId, subscription);
+export const deleteComponent = (id) => deleteRecord("technology_components", id, "component");
+export const deleteSubscription = (id) => deleteRecord("correction_subscriptions", id, "subscription");
+
+/** Saves feature states as updates to existing rows and inserts for new kinds (see equipment-model featureChanges). */
+export async function saveFeatures(machineId, { updates, inserts }) {
+  for (const feature of updates) {
+    unwrap(await supabase.from("installed_features").update({ state: feature.state }).eq("id", feature.id).select("id"));
+  }
+  if (inserts.length) {
+    unwrap(await supabase.from("installed_features")
+      .insert(inserts.map((feature) => ({ id: crypto.randomUUID(), machine_id: machineId, kind: feature.kind, state: feature.state }))));
+  }
 }

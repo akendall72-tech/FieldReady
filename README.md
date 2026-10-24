@@ -1,7 +1,8 @@
 # Field Ready Admin
 
-The website owners and admins use to manage Field Ready: the inspection checklists, machine
-options, people & stores (with each store's contacts for customers), and customers' app logins. It's plain HTML, CSS, and JavaScript that talks straight to the
+The website Agri-Service staff use to manage Field Ready: customers and their machines (with
+customers' app logins), and for owners and admins the inspection checklists, machine options, and
+people & stores (with each store's contacts for customers). It's plain HTML, CSS, and JavaScript that talks straight to the
 Field Ready Supabase project, so there's nothing to build or run on a server. GitHub Pages serves
 it from this repository.
 
@@ -12,7 +13,8 @@ repository.
 
 | | Owners | Admins | Employees |
 |---|---|---|---|
-| Sign in | Yes | Yes | No (they use the app) |
+| Sign in | Yes | Yes | Yes, for Customers & machines only |
+| Customers and machines | Every store's: add, edit, archive, delete | Their store's: add, edit, archive, delete | Their store's: add and edit |
 | Inspection checklist | Edit everything, publish | Edit How to Check steps in the draft | — |
 | Machine options | Edit everything | Look only | — |
 | People | Add and change anyone; reset passwords | Add employees to their store; turn their access off or on; reset their passwords | — |
@@ -20,8 +22,9 @@ repository.
 | Store contacts | Every store's | Their own store's | — |
 | Customer logins | Every customer's | Their own store's customers' | — |
 
-The database enforces these rules (`supabase/migrations` in FieldReadyApp); the website only hides
-what someone can't do.
+Customer logins can't use the website; they see their equipment in the app. A customer or machine
+with a finalized inspection can be archived but never deleted. The database enforces these rules
+(`supabase/migrations` in FieldReadyApp); the website only hides what someone can't do.
 
 ## Security
 
@@ -69,8 +72,21 @@ what someone can't do.
 - Changes to someone's store, role, or access reach their app the next time they open it. Nobody can
   turn off their own access, and the only owner stays an owner.
 
-## How the customers page works
+## How the customers and machines page works
 
+- Search finds a customer by their name, email, or phone, or by any of their machines' make, model,
+  or serial number. Archived customers and machines show only with **Show archived**.
+- **Add Customer** and **Edit** change a customer's name, phone, email, and store. **Add Machine**
+  and clicking a machine open the machine page, with everything the app records about it:
+  details, technology (tractors only: guidance system, software, steering, correction), components,
+  optional features or Precision Planting products (these save as soon as they're picked),
+  and correction subscriptions. Picking a factory-integrated guidance system sets factory steering,
+  as in the app.
+- Saving never overwrites a customer or machine someone else saved since you opened it. Phones pick
+  up changes at their next sync, and deletions reach them through the server's deletion log.
+- **Archive** hides a customer (and their machines) or a machine from lists, keeping its history.
+  **Delete** removes it everywhere, with its technology, subscriptions, and draft inspections; it's
+  offered only when no finalized inspection depends on it.
 - **Add Login** gives a customer's person an app login (a farm can have several). It shows a
   temporary password once; they choose their own the first time they sign in.
 - A customer login sees only that customer's equipment, completed inspections with reports,
@@ -91,7 +107,9 @@ what someone can't do.
 | `js/checklist-model.js` | Checklist rules (validation, versions, keys), tested on their own |
 | `js/views/options.js` | The machine options editor |
 | `js/views/people.js` | The people and stores page, with each store's contacts |
-| `js/views/customers.js` | The customers page (app logins for customers) |
+| `js/views/customers.js` | The customers and machines list, the customer editor, and customers' app logins |
+| `js/views/machine.js` | The machine page (details, technology, components, features, subscriptions) |
+| `js/equipment-model.js` | Customer and machine rules (who may do what, saving, which options to offer); tested on their own |
 | `js/customers-model.js` | Customer login and store contact rules; tested on their own |
 | `js/people-model.js` | Who may change whom, the add form's rules, temporary passwords; tested on their own |
 | `js/options-model.js` | Option rules (lists and their settings, new values, ordering, changes), tested on their own |
@@ -115,6 +133,10 @@ The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/customers-model.test.mjs
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/equipment-model.test.mjs
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open

@@ -1,4 +1,5 @@
-// The website shell: sign-in, who may use the site (owners and admins), the header, and pages.
+// The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
+// every page; employees see Customers & machines for their store. Customer logins use the app.
 
 import { supabase, signIn, signOut, loadProfile, describe } from "./api.js";
 import { escape } from "./ui.js";
@@ -9,17 +10,28 @@ import { mountCustomers } from "./views/customers.js";
 
 const root = document.getElementById("app");
 
+const STAFF = ["owner", "admin", "employee"];
+const MANAGERS = ["owner", "admin"];
+
 const PAGES = [
-  { id: "checklist", label: "Inspection checklist", mount: mountChecklist },
-  { id: "options", label: "Machine options", mount: mountOptions },
-  { id: "people", label: "People & stores", mount: mountPeople },
-  { id: "customers", label: "Customers", mount: mountCustomers },
+  { id: "checklist", label: "Inspection checklist", mount: mountChecklist, roles: MANAGERS },
+  { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
+  { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
+  { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
 ];
 
-/** The page named in the address (#options), or the checklist. */
-const pageFromAddress = () => PAGES.find((page) => page.mount && `#${page.id}` === location.hash)?.id ?? "checklist";
+const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee" };
 
-let current = { session: null, profile: null, page: pageFromAddress(), leaveCheck: null };
+/** The pages this person may open. */
+const pagesFor = (profile) => PAGES.filter((page) => page.roles.includes(profile?.role));
+
+/** The page named in the address (#options) if this person may open it, or their first page. */
+function pageFromAddress(profile = current.profile) {
+  const allowed = profile ? pagesFor(profile) : PAGES;
+  return allowed.find((page) => `#${page.id}` === location.hash)?.id ?? allowed[0]?.id ?? "checklist";
+}
+
+let current = { session: null, profile: null, page: null, leaveCheck: null };
 
 function renderSignIn(message = "") {
   root.innerHTML = `
@@ -28,7 +40,7 @@ function renderSignIn(message = "") {
         <div class="hero">
           <p class="eyebrow">Field Ready</p>
           <h1>Admin</h1>
-          <p>Owners and admins edit the inspection checklist and machine options here. Sign in with your Field Ready email and password.</p>
+          <p>Agri-Service staff manage customers, machines, checklists, and options here. Sign in with your Field Ready email and password.</p>
         </div>
         <form class="card" data-signin>
           <label>Email <input name="email" type="email" autocomplete="username" required></label>
@@ -68,7 +80,8 @@ function renderNoAccess(email, reason) {
 
 function renderShell() {
   const { profile } = current;
-  const roleLabel = profile.role === "owner" ? "Owner" : "Admin";
+  const roleLabel = ROLE_LABELS[profile.role] ?? profile.role;
+  const pages = pagesFor(profile);
   root.innerHTML = `
     <header class="topbar">
       <div class="brand"><span class="mark" aria-hidden="true"></span><span>Field Ready <strong>Admin</strong></span></div>
@@ -78,9 +91,7 @@ function renderShell() {
       </div>
     </header>
     <nav class="tabs" aria-label="Sections">
-      ${PAGES.map((page) => page.mount
-        ? `<a href="#${page.id}" class="tab${current.page === page.id ? " active" : ""}"${current.page === page.id ? ' aria-current="page"' : ""}>${page.label}</a>`
-        : `<span class="tab disabled" title="${escape(page.note)}">${page.label} <small>${escape(page.note)}</small></span>`).join("")}
+      ${pages.map((page) => `<a href="#${page.id}" class="tab${current.page === page.id ? " active" : ""}"${current.page === page.id ? ' aria-current="page"' : ""}>${page.label}</a>`).join("")}
     </nav>
     <main class="page" data-page></main>`;
   root.querySelector("[data-signout]").addEventListener("click", async () => {
@@ -88,7 +99,7 @@ function renderShell() {
     await signOut();
   });
   const page = root.querySelector("[data-page]");
-  current.leaveCheck = PAGES.find((p) => p.id === current.page).mount(page, { profile });
+  current.leaveCheck = pages.find((p) => p.id === current.page).mount(page, { profile });
 }
 
 window.addEventListener("hashchange", () => {
@@ -117,11 +128,12 @@ async function show(session) {
       renderNoAccess(session.user.email, "Nobody has given this login access to Field Ready. Ask your Field Ready owner.");
       return;
     }
-    if (profile.role !== "owner" && profile.role !== "admin") {
-      renderNoAccess(session.user.email, "The website is for owners and admins. Use the Field Ready app for inspections.");
+    if (!STAFF.includes(profile.role)) {
+      renderNoAccess(session.user.email, "The website is for Agri-Service staff. Use the Field Ready app to see your equipment and inspections.");
       return;
     }
     current.profile = profile;
+    current.page = pageFromAddress(profile);
     renderShell();
   } catch (error) {
     root.innerHTML = `<main class="signin"><div class="card"><h2>Couldn't load your account</h2><p>${escape(describe(error))}</p><button class="secondary" data-retry>Try Again</button></div></main>`;

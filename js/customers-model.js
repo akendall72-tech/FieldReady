@@ -40,18 +40,6 @@ export function newLoginProblems(login, people = [], invitations = []) {
   return found;
 }
 
-/** Customers matching a search (name, email, or phone) and a store ("" for every store). */
-export function filterCustomers(customers, { search = "", store = "", archived = false } = {}) {
-  const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  return customers
-    .filter((c) => (archived || !c.archived_at) && (!store || c.location_id === store))
-    .filter((c) => {
-      const text = `${c.name} ${c.email ?? ""} ${c.phone ?? ""}`.toLowerCase();
-      return words.every((word) => text.includes(word));
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
-
 /** A store's contacts grouped by role, in role order, each group in its saved order. */
 export function contactGroups(contacts, storeId) {
   const mine = contacts.filter((contact) => contact.location_id === storeId);
