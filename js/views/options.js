@@ -220,12 +220,14 @@ export function mountOptions(root, { profile }) {
           </div>`;
       }
       case "symbol": {
-        const known = model.SYMBOLS.some((symbol) => symbol.value === value);
+        // A row without its own icon shows the one the app uses for it.
+        const shown = model.shownSymbol(row);
+        const known = model.SYMBOLS.some((symbol) => symbol.value === shown);
         return `
           <label>${escape(setting.label)}
             <select ${data}${disabled}>
-              ${known || !value ? "" : `<option value="${escape(value)}" selected>${escape(value)}</option>`}
-              ${model.SYMBOLS.map((symbol) => `<option value="${symbol.value}"${attr("selected", symbol.value === (value ?? "shippingbox"))}>${escape(symbol.label)}</option>`).join("")}
+              ${known ? "" : `<option value="${escape(shown)}" selected>${escape(shown)}</option>`}
+              ${model.SYMBOLS.map((symbol) => `<option value="${symbol.value}"${attr("selected", symbol.value === shown)}>${escape(symbol.label)}</option>`).join("")}
             </select>
           </label>`;
       }

@@ -163,6 +163,17 @@ export const SYMBOLS = [
 
 export const listInfo = (id) => LISTS.find((list) => list.id === id);
 
+/**
+ * The icon the app shows for an option: its own, or for one saved without an icon, the app's
+ * built-in one (OptionCatalog fills it in): tractors a steering wheel, planters a leaf, any other
+ * equipment type a steering wheel, and component types a box.
+ */
+export function shownSymbol(row) {
+  if (row.details?.symbol) return row.details.symbol;
+  if (row.list === "equipment_type") return row.value === "planter" ? "leaf" : "steeringwheel";
+  return "shippingbox";
+}
+
 /** Whether a list's options say which equipment types use them. */
 export const hasUsedOn = (list) => (listInfo(list)?.settings ?? []).some((setting) => setting.type === "equipment");
 

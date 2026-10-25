@@ -6,7 +6,7 @@
 // The optional argument is the app's default option seed, whose lists must all be known here.
 
 import {
-  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn,
+  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn, shownSymbol,
 } from "../js/options-model.js";
 
 let passed = 0;
@@ -78,6 +78,10 @@ const sample = () => [
     && LISTS.find((list) => list.id === "equipment_type").settings.map((setting) => setting.key).join() === "symbol,guidance,planter");
   check("machine questions say which types ask them, and answers sit under their question",
     hasUsedOn("machine_question") && LISTS.find((list) => list.id === "machine_answer").parentList === "machine_question");
+  check("rows saved without an icon show the app's own", shownSymbol(row("equipment_type", "tractor", "Tractor", 0)) === "steeringwheel"
+    && shownSymbol(row("equipment_type", "planter", "Planter", 1)) === "leaf"
+    && shownSymbol({ ...row("equipment_type", "combine", "Combine", 2), details: { symbol: "gearshape.2" } }) === "gearshape.2"
+    && shownSymbol(row("component_kind", "other", "Other", 6)) === "shippingbox");
   const answer = newOption(sample(), "machine_answer", "Tracks", { organizationId: "org", parent: "undercarriage" });
   check("a new answer belongs to the question being viewed", answer.parent_value === "undercarriage" && answer.value === "tracks");
   check("tractor and planter can't be hidden", !canHide(row("equipment_type", "planter", "Planter", 1)));
