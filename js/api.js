@@ -145,6 +145,26 @@ export async function discardDraft(draft) {
   unwrap(await supabase.from("inspection_templates").delete().eq("id", draft.id));
 }
 
+/** Starts a new checklist (Machine or Custom) as a draft of its first version. */
+export async function createChecklist(organizationId, content) {
+  const { error } = await supabase.from("inspection_templates").insert({
+    organization_id: organizationId, template_id: content.id, version: content.version, title: content.title,
+    status: "draft", content, notes: "",
+  });
+  if (error?.code === "23505") throw new Error("A checklist with that name already exists. Choose another name.");
+  if (error) throw error;
+}
+
+/**
+ * Retires a checklist (published → retired: phones stop offering it) or brings it back
+ * (retired → published). Every version with the first status changes.
+ */
+export async function setChecklistStatus(templateId, from, to) {
+  const rows = unwrap(await supabase.from("inspection_templates").update({ status: to })
+    .eq("template_id", templateId).eq("status", from).select("id"));
+  if (rows.length === 0) throw new Error("Nothing changed. Someone may have changed it already, or your access doesn't allow it.");
+}
+
 // ---------------------------------------------------------------- people and stores
 
 /** Everyone this person may see (owners: everyone; admins: their store). */

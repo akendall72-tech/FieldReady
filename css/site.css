@@ -260,6 +260,16 @@ button.machine.archived { opacity: 0.7; }
 .section-label { font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
 
 button.link.back { padding-left: 0; margin-bottom: 8px; }
+.checklist-list { list-style: none; margin: 0; padding: 0; }
+.checklist-row { display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--hairline); padding: 4px 0; }
+.checklist-row:first-child { border-top: none; }
+.checklist-row.retired .checklist-open strong { color: var(--text-secondary); }
+button.checklist-open { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: none; color: var(--text); padding: 10px 8px; border-radius: var(--radius); }
+button.checklist-open:hover { background: var(--surface-tint); }
+.checklist-open .hint { margin: 0; }
+form.card[data-create] .choices { margin-top: 14px; }
+details.answer-groups { margin-top: 12px; }
+details.answer-groups summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--pine); }
 .feature-list { margin-top: 8px; }
 .feature-row { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 12px; align-items: center; border-top: 1px solid var(--hairline); padding: 8px 0; margin: 0; color: var(--text); font-weight: 500; }
 .feature-row:first-child { border-top: none; }

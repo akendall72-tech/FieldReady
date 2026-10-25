@@ -15,8 +15,8 @@ export function mountOptions(root, { profile }) {
     rows: [],
     saved: new Map(),
     list: model.LISTS[0].id,
-    /** The correction type whose services are shown. */
-    parent: null,
+    /** For lists under another (services under a correction type, answers under a question): the one shown, by list. */
+    parents: {},
     /** For lists with "used on": the equipment type shown, or "" for all. */
     equipment: "",
     busy: false,
@@ -31,9 +31,9 @@ export function mountOptions(root, { profile }) {
     const { added, updated } = model.changes(state.rows, state.saved);
     return added.length + updated.length > 0;
   };
-  const visibleRows = () => model.optionsIn(state.rows, state.list, info().parentList ? state.parent : null)
+  const parent = () => state.parents[state.list] ?? null;
+  const visibleRows = () => model.optionsIn(state.rows, state.list, info().parentList ? parent() : null)
     .filter((row) => !state.equipment || !model.hasUsedOn(state.list) || model.usedOn(row).includes(state.equipment));
-  const correctionTypes = () => model.optionsIn(state.rows, "correction_type");
   const equipmentTypes = () => model.optionsIn(state.rows, "equipment_type");
 
   // ---------------------------------------------------------------- loading
@@ -42,9 +42,11 @@ export function mountOptions(root, { profile }) {
     state.rows = await api.loadOptionRows();
     state.saved = model.baseline(state.rows);
     state.loadError = null;
-    const types = correctionTypes().map((row) => row.value);
-    if (!types.includes(state.parent)) {
-      state.parent = types.find((type) => model.optionsIn(state.rows, "correction_service", type).length) ?? types[0] ?? null;
+    for (const list of model.LISTS.filter((l) => l.parentList)) {
+      const parents = model.optionsIn(state.rows, list.parentList).map((row) => row.value);
+      if (!parents.includes(state.parents[list.id])) {
+        state.parents[list.id] = parents.find((value) => model.optionsIn(state.rows, list.id, value).length) ?? parents[0] ?? null;
+      }
     }
   }
 
@@ -136,9 +138,9 @@ export function mountOptions(root, { profile }) {
     const list = info();
     const rows = visibleRows();
     const parentPicker = list.parentList ? `
-      <label>Correction type
+      <label>${escape(list.parentLabel)}
         <select data-field="parent">
-          ${correctionTypes().map((type) => `<option value="${escape(type.value)}"${attr("selected", type.value === state.parent)}>${escape(type.label)}${type.active ? "" : " (hidden)"}</option>`).join("")}
+          ${model.optionsIn(state.rows, list.parentList).map((option) => `<option value="${escape(option.value)}"${attr("selected", option.value === parent())}>${escape(option.label)}${option.active ? "" : " (hidden)"}</option>`).join("")}
         </select>
       </label>` : "";
     const equipmentPicker = model.hasUsedOn(list.id) ? `
@@ -148,9 +150,7 @@ export function mountOptions(root, { profile }) {
           ${equipmentTypes().map((type) => `<option value="${escape(type.value)}"${attr("selected", type.value === state.equipment)}>${escape(type.label)}</option>`).join("")}
         </select>
       </label>` : "";
-    const empty = list.parentList
-      ? "No services listed for this correction type. Technicians type the service in."
-      : "No options in this list yet.";
+    const empty = list.empty ?? "No options in this list yet.";
     return `
       <div class="card">
         <h2>${escape(list.title)}</h2>
@@ -158,7 +158,7 @@ export function mountOptions(root, { profile }) {
         ${parentPicker}
         ${equipmentPicker}
         ${rows.length ? `<ol class="option-list">${rows.map((row, index) => optionRow(row, index, rows.length)).join("")}</ol>` : `<p class="hint">${escape(empty)}</p>`}
-        ${isOwner && list.canAdd !== false && (!list.parentList || state.parent) ? `
+        ${isOwner && list.canAdd !== false && (!list.parentList || parent()) ? `
           <form class="add-option" data-add>
             <label>Add an option <input name="label" placeholder="Name people will see" autocomplete="off"></label>
             <button class="secondary" type="submit">Add</button>
@@ -241,7 +241,7 @@ export function mountOptions(root, { profile }) {
     if (!element) return;
     const field = element.dataset.field;
     if (field === "parent") {
-      state.parent = element.value;
+      state.parents[state.list] = element.value;
       return render();
     }
     if (field === "equipment-filter") {
@@ -287,9 +287,9 @@ export function mountOptions(root, { profile }) {
     event.preventDefault();
     const label = form.label.value.trim();
     if (!label || !isOwner) return;
-    const parent = info().parentList ? state.parent : null;
+    const under = info().parentList ? parent() : null;
     const equipment = model.hasUsedOn(state.list) ? state.equipment || null : null;
-    const row = model.newOption(state.rows, state.list, label, { organizationId: profile.organization_id, parent, equipment });
+    const row = model.newOption(state.rows, state.list, label, { organizationId: profile.organization_id, parent: under, equipment });
     row._key = `new-${state.nextKey++}`;
     state.rows.push(row);
     render();

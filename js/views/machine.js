@@ -35,7 +35,8 @@ export function mountMachine(root, ctx) {
 
   const editable = () => model.canEdit(viewer, state.machine?.location_id ?? state.draft.location_id);
   const manageable = () => state.machine?.id && model.canManage(viewer, state.machine.location_id);
-  const isPlanter = () => state.draft.equipment_type === "planter";
+  /** The type's settings decide which technology the machine records (the app's rules). */
+  const hasGuidance = () => model.canHaveGuidance(rows, state.draft.equipment_type);
   const isDirty = () => JSON.stringify(state.draft) !== state.saved
     || Object.keys(state.components).length > 0 || Object.keys(state.subscriptions).length > 0;
   const storeName = (id) => stores.find((s) => s.id === id)?.name ?? "Unknown store";
@@ -47,6 +48,7 @@ export function mountMachine(root, ctx) {
       serial_number: machine.serial_number ?? "", yard_location: machine.yard_location ?? "",
       guidance_system: machine.guidance_system ?? "other", guidance_software: machine.guidance_software ?? "unknown",
       steering: machine.steering ?? "unknown", correction: machine.correction ?? "unknown",
+      details: { ...(machine.details ?? {}) },
     };
   }
 
@@ -96,7 +98,7 @@ export function mountMachine(root, ctx) {
       </div>
       ${editable() ? "" : '<p class="callout">This machine is at another store, so you can look but not change it.</p>'}
       ${detailsCard()}
-      ${machine ? featuresCard() + componentsCard() + subscriptionsCard() + manageCard() : ""}`;
+      ${machine ? featuresCard() + componentsCard() + (hasGuidance() || machine.correction_subscriptions?.length ? subscriptionsCard() : "") + manageCard() : ""}`;
   }
 
   const disabled = () => attr("disabled", !editable() || state.busy);
@@ -134,7 +136,8 @@ export function mountMachine(root, ctx) {
             </select>
           </label>
         </div>
-        ${isPlanter() ? "" : `
+        ${questionsBlock()}
+        ${!hasGuidance() ? "" : `
           <h3>Technology</h3>
           <div class="grid2">
             <label>Guidance system ${select("guidance_system", "guidance_system", d.guidance_system)}</label>
@@ -156,6 +159,25 @@ export function mountMachine(root, ctx) {
       </div>`;
   }
 
+  /** The equipment type's questions, each with "Not answered" plus its answers. */
+  function questionsBlock() {
+    const d = state.draft;
+    const questions = model.questionsFor(rows, d.equipment_type, Object.keys(d.details));
+    if (!questions.length) return "";
+    return `
+      <h3>About this machine</h3>
+      <div class="grid2">
+        ${questions.map((question) => `
+          <label>${escape(question.label)}
+            <select data-answer="${escape(question.value)}"${disabled()}>
+              <option value="">Not answered</option>
+              ${model.answerChoices(rows, question.value, d.details[question.value]).map((answer) => `<option value="${escape(answer.value)}"${attr("selected", answer.value === d.details[question.value])}>${escape(answer.label)}${answer.active === false ? " (hidden)" : ""}</option>`).join("")}
+            </select>
+          </label>`).join("")}
+      </div>
+      <p class="hint">Checklists include or skip checks based on these answers. Leave any you can't confirm unanswered; every check stays in.</p>`;
+  }
+
   function featuresCard() {
     const type = state.machine.equipment_type ?? "tractor";
     const existing = state.machine.installed_features ?? [];
@@ -168,10 +190,11 @@ export function mountMachine(root, ctx) {
         shown.push(row ?? { value: feature.kind, label: feature.kind, details: {} });
       }
     }
+    if (!shown.length) return "";
     return `
       <div class="card">
-        <h2>${type === "planter" ? "Planter technology" : "Optional features"}</h2>
-        <p class="hint">The inspection checks a ${type === "planter" ? "product" : "feature"} only when it's marked Installed. Changes save right away.</p>
+        <h2>${model.hasPlanterTechnology(rows, type) ? "Planter technology" : "Optional features"}</h2>
+        <p class="hint">The inspection checks a ${model.hasPlanterTechnology(rows, type) ? "product" : "feature"} only when it's marked Installed. Changes save right away.</p>
         <div class="feature-list">
           ${shown.map((feature) => `
             <label class="feature-row">
@@ -189,6 +212,8 @@ export function mountMachine(root, ctx) {
     const list = [...(state.machine.technology_components ?? [])].sort((a, b) =>
       model.choices(rows, "component_kind").findIndex((o) => o.value === a.kind) - model.choices(rows, "component_kind").findIndex((o) => o.value === b.kind));
     const adding = state.components.new;
+    // Types with no component types (balers, tillage…) have nothing to record here.
+    if (!list.length && !adding && !model.choices(rows, "component_kind", { equipmentType: type }).length) return "";
     return `
       <div class="card">
         <h2>Components</h2>
@@ -325,6 +350,11 @@ export function mountMachine(root, ctx) {
 
   function onInput(event) {
     const element = event.target;
+    if (element.dataset.answer && state.draft) {
+      if (element.value) state.draft.details[element.dataset.answer] = element.value;
+      else delete state.draft.details[element.dataset.answer];
+      return;
+    }
     if (element.dataset.field && state.draft) {
       const field = element.dataset.field;
       state.draft[field] = element.value;
@@ -432,7 +462,7 @@ export function mountMachine(root, ctx) {
     if (showProblems().length) return;
     const isNew = !state.machine;
     return run(async () => {
-      const saved = await api.saveMachine(state.machine ?? { organization_id: profile.organization_id }, model.cleanMachine(state.draft));
+      const saved = await api.saveMachine(state.machine ?? { organization_id: profile.organization_id }, model.cleanMachine(state.draft, rows));
       state.machine = { id: saved.id };
       await reload();
       return isNew ? "Machine added. Add its components, features, and subscriptions below." : "Saved. Phones pick up the change at their next sync.";

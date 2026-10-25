@@ -1,8 +1,9 @@
 # Field Ready Admin
 
 The website Agri-Service staff use to manage Field Ready: customers and their machines (with
-customers' app logins), and for owners and admins the inspection checklists, machine options, and
-people & stores (with each store's contacts for customers). It's plain HTML, CSS, and JavaScript that talks straight to the
+customers' app logins), inspection checklists (Guidance, Planter, Machine, and everyone's own
+Custom ones), and for owners and admins the machine options and people & stores (with each
+store's contacts for customers). It's plain HTML, CSS, and JavaScript that talks straight to the
 Field Ready Supabase project, so there's nothing to build or run on a server. GitHub Pages serves
 it from this repository.
 
@@ -15,8 +16,9 @@ repository.
 |---|---|---|---|
 | Sign in | Yes | Yes | Yes, for Customers & machines only |
 | Customers and machines | Every store's: add, edit, archive, delete | Their store's: add, edit, archive, delete | Their store's: add and edit |
-| Inspection checklist | Edit everything, publish | Edit How to Check steps in the draft | — |
-| Machine options | Edit everything | Look only | — |
+| Guidance, Planter, and Machine checklists | Edit everything, publish; add, copy, and retire Machine checklists | Edit How to Check steps in the draft; copy a Machine checklist as their own Custom one | — |
+| Custom checklists | Their own | Their own | Their own |
+| Machine options (including equipment types and machine questions) | Edit everything | Look only | — |
 | People | Add and change anyone; reset passwords | Add employees to their store; turn their access off or on; reset their passwords | — |
 | Stores | Add, rename, stop using | — | — |
 | Store contacts | Every store's | Their own store's | — |
@@ -37,7 +39,16 @@ with a finalized inspection can be archived but never deleted. The database enfo
 
 ## How the checklist editor works
 
-- There's one checklist per equipment type. The **Tractor / Planter** switch picks which one to edit.
+- Checklists come in four kinds, one tab each: **Guidance** (offered on every equipment type that
+  can have guidance), **Planter** (planters), **Machine** (one or more per equipment type, each
+  naming the types it's for), and **Custom** (each person's own; only they see them and use them in
+  the app, and once they finalize an inspection with one, their store's admins, the owners, and the
+  customer can see that inspection).
+- **New Checklist** and **Copy** start a draft of version 1. **Retire** stops phones offering a
+  checklist for new inspections; inspections already started or finished with it keep it. Retired
+  checklists can be brought back.
+- A check's **Applies to** can name equipment types and machine answers (for example, only machines
+  on tracks, or with a front loader). A machine that hasn't answered a question keeps the check.
 - Phones use the **live** version: the highest published version number.
 - **Start Editing** makes one shared **draft** of the next version. Save as often as you like;
   phones don't see drafts.
@@ -58,9 +69,11 @@ with a finalized inspection can be archived but never deleted. The database enfo
   it. Hidden options aren't offered for new work but still show on records that have them.
 - Options the app relies on (Other, Unknown, Preseason, the display, receiver, and steering
   component types…) can be renamed but not hidden.
-- **Equipment types** (Tractor, Planter) can be renamed but not added here: each type needs its own
-  technology questions and checklist in the app. Optional features and component types say which
-  types they're **used on**; a planter's features are its Precision Planting products.
+- **Equipment types** can be added. Each has an icon and two settings: whether it can have guidance
+  (it gets the guidance questions and Guidance inspections) and whether it has Precision Planting
+  technology. Optional features, component types, and **machine questions** say which types they're
+  **used on**; a planter's features are its Precision Planting products. Each machine question has
+  its **answers** listed under it.
 - Saving never overwrites an option someone else saved since you opened the page.
 
 ## How the people page works
@@ -103,8 +116,8 @@ with a finalized inspection can be archived but never deleted. The database enfo
 | `js/config.js` | The Supabase address and **publishable** key. Both are meant to be public; never put a secret or service-role key here |
 | `js/api.js` | Sign-in and database calls |
 | `js/main.js` | Sign-in, who may use the site, header and pages |
-| `js/views/checklist.js` | The checklist editor |
-| `js/checklist-model.js` | Checklist rules (validation, versions, keys), tested on their own |
+| `js/views/checklist.js` | The checklists by kind, and the checklist editor |
+| `js/checklist-model.js` | Checklist rules (validation, versions, keys, kinds, new checklists), tested on their own |
 | `js/views/options.js` | The machine options editor |
 | `js/views/people.js` | The people and stores page, with each store's contacts |
 | `js/views/customers.js` | The customers and machines list, the customer editor, and customers' app logins |
@@ -120,7 +133,7 @@ with a finalized inspection can be archived but never deleted. The database enfo
 The rules run in the JavaScript engine built into macOS:
 
 ```bash
-/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/*.json ../FieldReady/supabase/seed/default_catalog.sql
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/checklist-model.test.mjs -- ../FieldReady/FieldReady/Resources/Templates/*.json ../FieldReady/supabase/seed/checklists/*.json ../FieldReady/supabase/seed/default_catalog.sql
 ```
 
 ```bash

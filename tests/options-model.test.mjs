@@ -74,7 +74,12 @@ const sample = () => [
 {
   check("features and component types say what they're used on", hasUsedOn("feature") && hasUsedOn("component_kind") && !hasUsedOn("steering"));
   check("options saved before planters are tractor options", usedOn(row("feature", "isobus", "ISOBUS", 0)).join() === "tractor");
-  check("equipment types can't be added here", LISTS.find((list) => list.id === "equipment_type").canAdd === false);
+  check("equipment types can be added, with their guidance and planter settings", LISTS.find((list) => list.id === "equipment_type").canAdd !== false
+    && LISTS.find((list) => list.id === "equipment_type").settings.map((setting) => setting.key).join() === "symbol,guidance,planter");
+  check("machine questions say which types ask them, and answers sit under their question",
+    hasUsedOn("machine_question") && LISTS.find((list) => list.id === "machine_answer").parentList === "machine_question");
+  const answer = newOption(sample(), "machine_answer", "Tracks", { organizationId: "org", parent: "undercarriage" });
+  check("a new answer belongs to the question being viewed", answer.parent_value === "undercarriage" && answer.value === "tracks");
   check("tractor and planter can't be hidden", !canHide(row("equipment_type", "planter", "Planter", 1)));
   const rows = sample();
   const product = newOption(rows, "feature", "Seed firmer", { organizationId: "org", equipment: "planter" });

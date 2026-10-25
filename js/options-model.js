@@ -19,10 +19,30 @@ export const LISTS = [
   {
     id: "equipment_type",
     title: "Equipment types",
-    about: "Each type has its own technology questions and inspection checklist, so new types need an app update and can't be added here.",
-    settings: [],
+    about: "The kinds of machine. Each type has its own machine questions; its settings decide the technology questions and which inspections it's offered. Machine checklists name the types they're for.",
+    settings: [
+      { key: "symbol", type: "symbol", label: "Icon" },
+      { key: "guidance", type: "bool", label: "Can have guidance: asks the guidance questions and offers Guidance inspections" },
+      { key: "planter", type: "bool", label: "Precision Planting technology: records planter products and offers Planter inspections" },
+    ],
     fixed: ["tractor", "planter"],
-    canAdd: false,
+  },
+  {
+    id: "machine_question",
+    title: "Machine questions",
+    about: "Asked when a machine is added or edited, for the equipment types each is used on. Checklist checks can apply only to some answers, like tracks or a front loader.",
+    settings: [USED_ON],
+    fixed: [],
+  },
+  {
+    id: "machine_answer",
+    title: "Answers",
+    about: "The answers offered for each machine question.",
+    parentList: "machine_question",
+    parentLabel: "Question",
+    empty: "No answers for this question yet.",
+    settings: [],
+    fixed: [],
   },
   {
     id: "guidance_system",
@@ -60,6 +80,8 @@ export const LISTS = [
     title: "Correction services",
     about: "The services offered for each correction type when a subscription is added. Anything else can be typed in.",
     parentList: "correction_type",
+    parentLabel: "Correction type",
+    empty: "No services listed for this correction type. Technicians type the service in.",
     settings: [
       { key: "provider", type: "text", label: "Provider", hint: "Saved on the subscription, e.g. Trimble" },
       { key: "group", type: "text", label: "Heading", hint: "Services are grouped under this; the provider if empty" },
@@ -110,7 +132,7 @@ export const LISTS = [
   },
 ];
 
-/** Icons the app can show for a component type (SF Symbols names), in plain words. */
+/** Icons the app can show for a component or equipment type (SF Symbols names), in plain words. */
 export const SYMBOLS = [
   { value: "display", label: "Screen" },
   { value: "location.circle", label: "Location" },
@@ -125,6 +147,18 @@ export const SYMBOLS = [
   { value: "cable.connector", label: "Cable" },
   { value: "shippingbox", label: "Box" },
   { value: "leaf", label: "Leaf" },
+  { value: "gearshape.2", label: "Gears" },
+  { value: "sprinkler.and.droplets", label: "Sprayer" },
+  { value: "drop", label: "Drop" },
+  { value: "wind", label: "Wind" },
+  { value: "tornado", label: "Swirl" },
+  { value: "circle.grid.3x3", label: "Seeds" },
+  { value: "cylinder", label: "Bale" },
+  { value: "scissors", label: "Scissors" },
+  { value: "rays", label: "Rays" },
+  { value: "square.3.layers.3d.down.right", label: "Layers" },
+  { value: "arrow.up.and.down.square", label: "Lift" },
+  { value: "wrench.and.screwdriver", label: "Tools" },
 ];
 
 export const listInfo = (id) => LISTS.find((list) => list.id === id);

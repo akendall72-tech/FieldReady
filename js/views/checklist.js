@@ -1,24 +1,36 @@
-// The inspection checklist editor.
+// The inspection checklists, by kind: Guidance and Planter (one checklist each), Machine (one or
+// more per equipment type), and Custom (each person's own).
 //
-// There's one checklist per equipment type (tractor, planter); a switch picks which to edit.
-// Phones use the live (newest published) version of each. Editing happens in one shared draft: owners can
-// change everything and publish it; admins can change only How to Check steps. The database
-// enforces both, so this page only hides what someone can't do. Published versions never change.
+// Phones use the live (newest published) version of each checklist. Editing happens in one draft:
+// owners change everything in the shared checklists and publish them, and admins change only How
+// to Check steps. Custom checklists belong to whoever made them (anyone on staff); only they see,
+// edit, publish, and use them. The database enforces all of this, so this page only hides what
+// someone can't do. Published versions never change; a retired checklist isn't offered for new
+// inspections.
 
 import * as api from "../api.js";
 import { escape, attr, formatDate, notice } from "../ui.js";
 import * as model from "../checklist-model.js";
-import { usedOn } from "../options-model.js";
+import { usedOn, optionsIn } from "../options-model.js";
+import { canHaveGuidance, hasPlanterTechnology } from "../equipment-model.js";
 
-/** The checklist shown first: the original tractor (guidance) checklist. */
-const CHECKLIST_ID = "preseason-general";
+/** The usual Guidance and Planter checklists, opened first. */
+const PREFERRED = { guidance: "preseason-general", planter: "preseason-planter" };
 
 export function mountChecklist(root, { profile }) {
   const isOwner = profile.role === "owner";
+  const isAdmin = profile.role === "admin";
+  /** Employees see only their own Custom checklists. */
+  const kinds = isOwner || isAdmin ? model.KINDS : model.KINDS.filter((kind) => kind.value === "custom");
   const state = {
-    /** Every version of every checklist; `rows` are the chosen checklist's. */
+    /** Every version of every checklist this person can see; `rows` are the open checklist's. */
     allRows: [],
-    templateId: CHECKLIST_ID,
+    kind: kinds[0].value,
+    /** The open checklist; null shows the kind's list (Machine and Custom). */
+    templateId: null,
+    showRetired: false,
+    /** A new checklist being named: { title, equipment, from (template id to copy, or null) }. */
+    creating: null,
     rows: [],
     live: null,
     draft: null,
@@ -30,17 +42,34 @@ export function mountChecklist(root, { profile }) {
     loadError: null,
   };
 
-  const canEditAll = () => Boolean(state.draft) && isOwner;
-  const canEditSteps = () => Boolean(state.draft);
+  const isCustom = () => state.kind === "custom";
+  const isShared = () => state.kind === "guidance" || state.kind === "planter";
+  /** Making, copying, publishing, retiring, and discarding: owners for shared checklists, anyone for their own. */
+  const canManage = () => isCustom() || isOwner;
+  const canEditAll = () => Boolean(state.draft) && canManage();
+  const canEditSteps = () => Boolean(state.draft) && (canManage() || isAdmin);
   const isDirty = () => Boolean(state.content) && JSON.stringify(state.content) !== state.saved;
   // Option values phones understand, for lists the server has (an unloaded list checks nothing).
   const known = () => Object.fromEntries(
-    ["guidance_system", "feature", "correction_type"]
+    ["guidance_system", "feature", "correction_type", "equipment_type"]
       .filter((list) => state.options[list]?.length)
       .map((list) => [list, new Set(state.options[list].map((o) => o.value))]),
   );
-  /** The equipment type the open checklist is for (the original checklist has none: tractors). */
-  const equipment = () => state.content?.equipment ?? "tractor";
+  const optionRows = () => Object.values(state.options).flat();
+  const equipmentTypes = () => state.options.equipment_type ?? [];
+  /**
+   * The equipment types the open checklist covers: the ones it names, or for Guidance the types
+   * that can have guidance, for Planter the planter types, and otherwise every type.
+   */
+  function types() {
+    const named = model.typesOf(state.content);
+    if (named.length) return named;
+    const all = equipmentTypes().filter((type) => type.active).map((type) => type.value);
+    if (state.kind === "guidance") return all.filter((type) => canHaveGuidance(optionRows(), type));
+    if (state.kind === "planter") return all.filter((type) => hasPlanterTechnology(optionRows(), type));
+    return all;
+  }
+  const typeLabel = (value) => equipmentTypes().find((type) => type.value === value)?.label ?? value;
   const section = () => state.content?.sections[state.selected.section];
   const item = () => (state.selected.item == null ? null : section()?.items[state.selected.item]);
 
@@ -51,12 +80,29 @@ export function mountChecklist(root, { profile }) {
     const [rows, options] = await Promise.all([api.loadChecklists(), api.loadOptions()]);
     state.allRows = rows;
     state.options = options;
-    const ids = checklistIds();
-    if (!ids.includes(state.templateId)) state.templateId = ids.includes(CHECKLIST_ID) ? CHECKLIST_ID : ids[0];
+    if (state.templateId && !checklists(state.kind).some((c) => c.id === state.templateId)) state.templateId = null;
+    if (!state.templateId && isShared()) state.templateId = defaultChecklist(state.kind);
     openChecklist();
   }
 
-  const checklistIds = () => [...new Set(state.allRows.map((row) => row.template_id))];
+  /** The checklists of a kind, each with its versions, live version, draft, and newest content. */
+  function checklists(kind) {
+    const ids = [...new Set(state.allRows.map((row) => row.template_id))];
+    return ids.map((id) => {
+      const rows = state.allRows.filter((row) => row.template_id === id);
+      const live = model.liveVersion(rows);
+      const draft = rows.find((row) => row.status === "draft") ?? null;
+      const newest = draft ?? live ?? rows.reduce((best, row) => (!best || model.isNewer(row.version, best.version) ? row : best), null);
+      return { id, rows, live, draft, content: newest?.content, retired: !live && rows.some((row) => row.status === "retired") };
+    })
+      .filter((checklist) => model.kindOf(checklist.content) === kind)
+      .sort((a, b) => (a.content?.title ?? a.id).localeCompare(b.content?.title ?? b.id));
+  }
+
+  function defaultChecklist(kind) {
+    const ids = checklists(kind).filter((c) => !c.retired).map((c) => c.id);
+    return ids.includes(PREFERRED[kind]) ? PREFERRED[kind] : ids[0] ?? null;
+  }
 
   /** Shows the chosen checklist's draft, or its live version. */
   function openChecklist() {
@@ -103,16 +149,16 @@ export function mountChecklist(root, { profile }) {
         <button class="secondary" data-action="reload">Try Again</button></div>`;
       return;
     }
-    if (!state.content) {
-      root.innerHTML = `
-        <div data-notice></div>
-        <div class="card"><h2>No checklist yet</h2>
-        <p>The server has no published checklist. Run <code>supabase/seed/default_catalog.sql</code> from the app's repository to load the default one.</p></div>`;
+    if (!state.templateId || !state.content) {
+      root.innerHTML = `<div data-notice></div>${kindTabs()}${listView()}`;
       return;
     }
     root.innerHTML = `
       <div data-notice></div>
+      ${kindTabs()}
+      ${isShared() ? "" : `<button class="link back" data-action="close-checklist">← ${escape(kindInfo().label)} checklists</button>`}
       ${toolbar()}
+      ${settingsCard()}
       <div data-problems>${problemsPanel()}</div>
       <div class="editor">
         <aside class="outline" aria-label="Sections and checks">${outline()}</aside>
@@ -136,13 +182,14 @@ export function mountChecklist(root, { profile }) {
     const liveText = live
       ? `Phones use version <strong>${escape(live.version)}</strong>${live.published_at ? `, published ${escape(formatDate(live.published_at))}` : ""}.`
       : "Nothing is published yet.";
+    const retire = !isShared() && live && canManage()
+      ? `<button class="danger" data-action="retire"${attr("disabled", state.busy)}>Retire</button>` : "";
     const actions = draft
       ? `<button class="secondary" data-action="save"${attr("disabled", !isDirty() || state.busy)}>Save Draft</button>
-         ${isOwner ? `<button class="primary" data-action="publish"${attr("disabled", state.busy)}>Publish ${escape(draft.version)}</button>
+         ${canManage() ? `<button class="primary" data-action="publish"${attr("disabled", state.busy)}>Publish ${escape(draft.version)}</button>
          <button class="danger" data-action="discard"${attr("disabled", state.busy)}>Discard Draft</button>` : ""}`
-      : `<button class="primary" data-action="start"${attr("disabled", state.busy || !live)}>Start Editing</button>`;
+      : `<button class="primary" data-action="start"${attr("disabled", state.busy || !live || !(canManage() || isAdmin))}>Start Editing</button>${retire}`;
     return `
-      ${checklistSwitch()}
       <div class="toolbar">
         <div>
           <h1>${escape(state.content.title)}</h1>
@@ -153,23 +200,108 @@ export function mountChecklist(root, { profile }) {
         </div>
         <div class="actions">${actions}</div>
       </div>
-      ${draft && !isOwner ? `<p class="callout">As an admin you can change How to Check steps. An owner publishes the draft.</p>` : ""}`;
+      ${draft && !canManage() ? `<p class="callout">As an admin you can change How to Check steps. An owner publishes the draft.</p>` : ""}
+      ${!live && !draft ? `<p class="callout">This checklist is retired, so it isn't offered for new inspections.${canManage() ? " Bring it back from the list." : ""}</p>` : ""}`;
   }
 
-  /** Tractor / Planter: one button per checklist, named for its equipment type. */
-  function checklistSwitch() {
-    const ids = checklistIds();
-    if (ids.length < 2) return "";
-    const types = state.options.equipment_type ?? [];
-    const name = (id) => {
-      const rows = state.allRows.filter((row) => row.template_id === id);
-      const content = (rows.find((row) => row.status === "draft") ?? model.liveVersion(rows) ?? rows[0])?.content;
-      const type = content?.equipment ?? "tractor";
-      return types.find((option) => option.value === type)?.label ?? content?.title ?? id;
-    };
+  const kindInfo = () => model.KINDS.find((kind) => kind.value === state.kind);
+
+  /** Guidance / Planter / Machine / Custom. */
+  function kindTabs() {
+    if (kinds.length < 2) return "";
     return `
-      <div class="segmented" role="group" aria-label="Checklist">
-        ${ids.map((id) => `<button class="segment${id === state.templateId ? " active" : ""}" data-action="switch-checklist" data-id="${escape(id)}"${id === state.templateId ? ' aria-pressed="true"' : ' aria-pressed="false"'}>${escape(name(id))}</button>`).join("")}
+      <div class="segmented" role="group" aria-label="Kind of inspection">
+        ${kinds.map((kind) => `<button class="segment${kind.value === state.kind ? " active" : ""}" data-action="switch-kind" data-kind="${kind.value}" aria-pressed="${kind.value === state.kind}">${escape(kind.label)}</button>`).join("")}
+      </div>`;
+  }
+
+  /** The kind's checklists (Machine and Custom), with New, Copy, and Bring Back. */
+  function listView() {
+    const kind = kindInfo();
+    if (isShared()) {
+      return `<div class="card"><h2>No ${escape(kind.label)} checklist yet</h2>
+        <p>The server has no published ${escape(kind.label)} checklist. Run <code>supabase/seed/default_catalog.sql</code> from the app's repository to load the default one.</p></div>`;
+    }
+    const all = checklists(state.kind);
+    const current = all.filter((c) => !c.retired);
+    const retired = all.filter((c) => c.retired);
+    const empty = isCustom()
+      ? "You haven't made any custom checklists yet. New Checklist starts one; you can also copy a Machine checklist from its list."
+      : "No Machine checklists yet.";
+    return `
+      <div class="toolbar">
+        <div>
+          <h1>${escape(kind.label)} checklists</h1>
+          <p class="meta">${escape(kind.about)}</p>
+        </div>
+        ${canManage() ? `<div class="actions"><button class="primary" data-action="new-checklist"${attr("disabled", state.busy || state.creating)}>New Checklist</button></div>` : ""}
+      </div>
+      ${state.creating ? createForm() : ""}
+      <div class="card">
+        ${current.length ? `<ol class="checklist-list">${current.map(checklistRow).join("")}</ol>` : `<p class="hint">${escape(empty)}</p>`}
+        ${retired.length ? `
+          <label class="check"><input type="checkbox" data-field="show-retired"${attr("checked", state.showRetired)}> Show retired (${retired.length})</label>
+          ${state.showRetired ? `<ol class="checklist-list">${retired.map(checklistRow).join("")}</ol>` : ""}` : ""}
+      </div>`;
+  }
+
+  function checklistRow(checklist) {
+    const named = model.typesOf(checklist.content);
+    const status = [
+      checklist.retired ? "Retired" : checklist.live ? `Live ${checklist.live.version}` : "Not published yet",
+      checklist.draft ? `Draft ${checklist.draft.version}` : "",
+      named.length ? named.map(typeLabel).join(", ") : "Any equipment type",
+    ].filter(Boolean);
+    const id = escape(checklist.id);
+    return `
+      <li class="checklist-row${checklist.retired ? " retired" : ""}">
+        <button class="checklist-open" data-action="open-checklist" data-id="${id}">
+          <strong>${escape(checklist.content?.title || checklist.id)}</strong>
+          <span class="hint">${status.map(escape).join(" · ")}</span>
+        </button>
+        <span class="tools">
+          ${canManage() || (isOwner || isAdmin) ? `<button class="link" data-action="copy-checklist" data-id="${id}"${attr("disabled", state.busy)}>Copy</button>` : ""}
+          ${checklist.retired && canManage() ? `<button class="link" data-action="bring-back" data-id="${id}"${attr("disabled", state.busy)}>Bring Back</button>` : ""}
+        </span>
+      </li>`;
+  }
+
+  /** Naming a new checklist (or a copy) and choosing its equipment types. */
+  function createForm() {
+    const creating = state.creating;
+    const source = creating.from && checklists(model.kindOf(creating.fromContent)).find((c) => c.id === creating.from);
+    return `
+      <form class="card" data-create>
+        <h2>${source ? `Copy “${escape(source.content?.title ?? source.id)}”` : `New ${escape(kindInfo().label)} checklist`}</h2>
+        <label>Name <input name="title" value="${escape(creating.title)}" autocomplete="off" placeholder="e.g. Combine preseason"></label>
+        ${creating.toKind !== "custom" || !source ? "" : '<p class="hint">The copy is your own Custom checklist: only you see it and use it.</p>'}
+        <div class="choices">
+          <span class="choices-title">Equipment types${creating.toKind === "custom" ? " (none checked: any machine)" : ""}</span>
+          ${equipmentTypes().filter((type) => type.active).map((type) => `
+            <label class="check"><input type="checkbox" data-create-type="${escape(type.value)}"${attr("checked", creating.equipment.includes(type.value))}> ${escape(type.label)}</label>`).join("")}
+        </div>
+        <p class="form-error" data-create-problem></p>
+        <div class="actions">
+          <button class="primary" type="submit"${attr("disabled", state.busy)}>Create Draft</button>
+          <button class="secondary" type="button" data-action="cancel-create">Cancel</button>
+        </div>
+      </form>`;
+  }
+
+  /** Machine and Custom checklists: their name and equipment types, editable in a draft. */
+  function settingsCard() {
+    if (isShared()) return "";
+    const all = canEditAll();
+    const named = new Set(model.typesOf(state.content));
+    return `
+      <div class="card">
+        <h2>Checklist</h2>
+        <label>Name <input data-field="checklist.title" value="${escape(state.content.title)}"${disabledUnless(all)}></label>
+        <div class="choices">
+          <span class="choices-title">Equipment types${isCustom() ? " (none checked: any machine)" : " it's offered for (none checked: every type)"}</span>
+          ${equipmentTypes().filter((type) => type.active || named.has(type.value)).map((type) => `
+            <label class="check"><input type="checkbox" data-field="checklist.equipment" data-value="${escape(type.value)}"${attr("checked", named.has(type.value))}${disabledUnless(all)}> ${escape(type.label)}</label>`).join("")}
+        </div>
       </div>`;
   }
 
@@ -240,7 +372,10 @@ export function mountChecklist(root, { profile }) {
   function choices(list, field, selected, title) {
     const chosen = new Set(selected ?? []);
     // Hidden options and other equipment's options aren't offered, but stay visible while a check uses them.
-    const fits = (option) => option.active && (list !== "feature" || usedOn(option).includes(equipment()));
+    const covered = types();
+    const fits = (option) => option.active
+      && (list !== "feature" || usedOn(option).some((type) => covered.includes(type)))
+      && (list !== "equipment_type" || covered.includes(option.value));
     const options = (state.options[list] ?? []).filter((option) => fits(option) || chosen.has(option.value));
     if (options.length === 0) return `<p class="hint">${escape(title)}: no options on the server yet.</p>`;
     return `
@@ -301,10 +436,12 @@ export function mountChecklist(root, { profile }) {
         <fieldset>
           <legend>Applies to</legend>
           <p class="hint">Leave a group empty to include every machine. The check appears only on machines that match every group you fill in.</p>
-          ${equipment() === "tractor" || applies.systems ? choices("guidance_system", "applies.systems", applies.systems, "Guidance systems") : ""}
-          ${equipment() === "tractor" || applies.requiresAutoSteer ? `<label class="check"><input type="checkbox" data-field="applies.requiresAutoSteer"${attr("checked", applies.requiresAutoSteer === true)}${disabledUnless(all)}> Only machines with auto-steer</label>` : ""}
-          ${choices("feature", "applies.features", applies.features, equipment() === "tractor" ? "Features (any marked Installed)" : "Products (any marked Installed)")}
-          ${equipment() === "tractor" || applies.corrections ? choices("correction_type", "applies.corrections", applies.corrections, "Correction types") : ""}
+          ${state.kind === "guidance" || applies.systems ? choices("guidance_system", "applies.systems", applies.systems, "Guidance systems") : ""}
+          ${state.kind === "guidance" || applies.requiresAutoSteer ? `<label class="check"><input type="checkbox" data-field="applies.requiresAutoSteer"${attr("checked", applies.requiresAutoSteer === true)}${disabledUnless(all)}> Only machines with auto-steer</label>` : ""}
+          ${state.kind !== "machine" && state.kind !== "custom" || applies.features ? choices("feature", "applies.features", applies.features, state.kind === "planter" ? "Products (any marked Installed)" : "Features (any marked Installed)") : ""}
+          ${state.kind === "guidance" || applies.corrections ? choices("correction_type", "applies.corrections", applies.corrections, "Correction types") : ""}
+          ${types().length > 1 || applies.equipment ? choices("equipment_type", "applies.equipment", applies.equipment, "Equipment types") : ""}
+          ${answerGroups(applies)}
         </fieldset>
 
         <fieldset>
@@ -328,6 +465,32 @@ export function mountChecklist(root, { profile }) {
           ${all ? '<button class="add" data-action="add-field">+ Add field</button>' : ""}
         </fieldset>
       </div>`;
+  }
+
+  /** One group per question the covered types are asked: the check applies only to the answers ticked. */
+  function answerGroups(applies) {
+    const covered = types();
+    const chosen = applies.answers ?? {};
+    const questions = (state.options.machine_question ?? [])
+      .filter((question) => (question.active && usedOn(question).some((type) => covered.includes(type))) || chosen[question.value]);
+    if (!questions.length) return "";
+    // Folded away unless in use, or the checklist is for one type (its questions are few).
+    const open = Object.keys(chosen).length > 0 || covered.length === 1;
+    return `
+      <details class="answer-groups"${attr("open", open)}>
+        <summary>Machine answers (${questions.length} ${questions.length === 1 ? "question" : "questions"})</summary>
+        ${questions.map((question) => {
+      const picked = new Set(chosen[question.value] ?? []);
+      const answers = optionsIn(optionRows(), "machine_answer", question.value).filter((answer) => answer.active || picked.has(answer.value));
+      if (!answers.length) return "";
+      return `
+        <div class="choices">
+          <span class="choices-title">${escape(question.label)} (only these answers; unanswered machines keep the check)</span>
+          ${answers.map((answer) => `
+            <label class="check"><input type="checkbox" data-field="applies.answers" data-question="${escape(question.value)}" data-value="${escape(answer.value)}"${attr("checked", picked.has(answer.value))}${disabledUnless(canEditAll())}> ${escape(answer.label)}</label>`).join("")}
+        </div>`;
+        }).join("")}
+      </details>`;
   }
 
   // ---------------------------------------------------------------- editing
@@ -357,7 +520,37 @@ export function mountChecklist(root, { profile }) {
     else delete check.appliesTo;
   }
 
+  function toggleAnswer(check, question, value, on) {
+    const applies = check.appliesTo ?? {};
+    const answers = applies.answers ?? {};
+    const chosen = new Set(answers[question] ?? []);
+    if (on) chosen.add(value);
+    else chosen.delete(value);
+    const order = optionsIn(optionRows(), "machine_answer", question).map((answer) => answer.value);
+    if (chosen.size) answers[question] = [...chosen].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    else delete answers[question];
+    if (Object.keys(answers).length) applies.answers = answers;
+    else delete applies.answers;
+    if (Object.keys(applies).length) check.appliesTo = applies;
+    else delete check.appliesTo;
+  }
+
   function onInput(event) {
+    if (event.target.dataset.createType && state.creating) {
+      // Checkboxes send both input and change, so set rather than toggle.
+      const type = event.target.dataset.createType;
+      const others = state.creating.equipment.filter((value) => value !== type);
+      state.creating.equipment = event.target.checked ? [...others, type] : others;
+      return;
+    }
+    if (event.target.name === "title" && event.target.closest("[data-create]") && state.creating) {
+      state.creating.title = event.target.value;
+      return;
+    }
+    if (event.target.dataset.field === "show-retired") {
+      state.showRetired = event.target.checked;
+      return render();
+    }
     const element = event.target.closest("[data-field]");
     if (!element || !state.content || !state.draft) return;
     const field = element.dataset.field;
@@ -373,6 +566,22 @@ export function mountChecklist(root, { profile }) {
     }
     if (!canEditAll()) return;
     switch (field) {
+      case "checklist.title":
+        state.content.title = value;
+        root.querySelector(".toolbar h1").textContent = value || "Untitled checklist";
+        break;
+      case "checklist.equipment": {
+        const order = equipmentTypes().map((type) => type.value);
+        const named = new Set(model.typesOf(state.content));
+        if (value) named.add(element.dataset.value);
+        else named.delete(element.dataset.value);
+        if (named.size) state.content.equipment = [...named].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        else delete state.content.equipment;
+        render();
+        return;
+      }
+      case "applies.answers": toggleAnswer(check, element.dataset.question, element.dataset.value, value); break;
+      case "applies.equipment": toggleApplies(check, "equipment", "equipment_type", element.dataset.value, value); break;
       case "section.title":
         sec.title = value;
         root.querySelector(`[data-nav-section="${state.selected.section}"]`).textContent = value || "Untitled section";
@@ -444,7 +653,28 @@ export function mountChecklist(root, { profile }) {
 
     switch (action) {
       case "reload": return load();
-      case "switch-checklist": return switchChecklist(element.dataset.id);
+      case "switch-kind": return switchKind(element.dataset.kind);
+      case "open-checklist": return openFromList(element.dataset.id);
+      case "close-checklist": return closeChecklist();
+      case "new-checklist":
+        state.creating = { title: "", equipment: [], from: null, toKind: state.kind };
+        render();
+        root.querySelector('[data-create] [name="title"]')?.focus();
+        return;
+      case "copy-checklist": {
+        const source = checklists(state.kind).find((c) => c.id === element.dataset.id);
+        // Admins can't make shared checklists, so their copy of a Machine checklist is their own Custom one.
+        const toKind = isOwner || isCustom() ? state.kind : "custom";
+        state.creating = { title: `Copy of ${source?.content?.title ?? ""}`, equipment: model.typesOf(source?.content), from: source?.id, fromContent: source?.content, toKind };
+        render();
+        root.querySelector('[data-create] [name="title"]')?.select();
+        return;
+      }
+      case "cancel-create":
+        state.creating = null;
+        return render();
+      case "bring-back": return bringBack(element.dataset.id);
+      case "retire": return retire();
       case "select-section": return select(s, null);
       case "select-item": return select(s, i);
       case "start": return startEditing();
@@ -513,13 +743,75 @@ export function mountChecklist(root, { profile }) {
     }
   }
 
-  function switchChecklist(id) {
-    if (id === state.templateId) return;
-    if (isDirty() && !confirm("You have unsaved changes to this draft. Switch checklists without saving?")) return;
+  const leaveDraft = () => !isDirty() || confirm("You have unsaved changes to this draft. Leave without saving?");
+
+  function switchKind(kind) {
+    if (kind === state.kind || !leaveDraft()) return;
+    state.kind = kind;
+    state.creating = null;
+    state.templateId = isShared() ? defaultChecklist(kind) : null;
+    state.selected = { section: 0, item: 0 };
+    openChecklist();
+    render();
+  }
+
+  function openFromList(id) {
     state.templateId = id;
     state.selected = { section: 0, item: 0 };
     openChecklist();
     render();
+  }
+
+  function closeChecklist() {
+    if (!leaveDraft()) return;
+    state.templateId = null;
+    openChecklist();
+    render();
+  }
+
+  /** Creates the named checklist (new, or a copy) as a draft and opens it. */
+  function create(form) {
+    const creating = state.creating;
+    const title = String(creating?.title ?? "").trim();
+    if (!title) {
+      root.querySelector("[data-create-problem]").textContent = "Give the checklist a name.";
+      return;
+    }
+    const taken = new Set(state.allRows.map((row) => row.template_id));
+    const suffix = creating.toKind === "custom" ? crypto.randomUUID().slice(0, 4) : "";
+    const content = creating.from
+      ? model.copyChecklist(creating.fromContent, { title, kind: creating.toKind, taken, suffix })
+      : model.newChecklist({ kind: creating.toKind, title, equipment: creating.equipment, taken, suffix });
+    if (creating.equipment.length) content.equipment = [...creating.equipment];
+    else delete content.equipment;
+    return run(async () => {
+      await api.createChecklist(profile.organization_id, content);
+      state.creating = null;
+      state.kind = creating.toKind;
+      state.templateId = content.id;
+      state.selected = { section: 0, item: 0 };
+      await fetchAll();
+      return `Draft of “${title}” started. Fill in its checks, then publish it.`;
+    });
+  }
+
+  function retire() {
+    const title = state.content.title;
+    if (!confirm(`Retire “${title}”?\n\nPhones stop offering it for new inspections at their next sync. Inspections already started or finished with it keep it. You can bring it back from the list.`)) return;
+    return run(async () => {
+      await api.setChecklistStatus(state.templateId, "published", "retired");
+      state.templateId = null;
+      await fetchAll();
+      return `Retired “${title}”.`;
+    });
+  }
+
+  function bringBack(id) {
+    return run(async () => {
+      await api.setChecklistStatus(id, "retired", "published");
+      await fetchAll();
+      return "Brought back. Phones offer it again after their next sync.";
+    });
   }
 
   // ---------------------------------------------------------------- drafts
@@ -542,6 +834,13 @@ export function mountChecklist(root, { profile }) {
     state.busy = false;
     render();
     if (message) notice(root, message, kind);
+  }
+
+  function onSubmit(event) {
+    const form = event.target.closest("[data-create]");
+    if (!form) return;
+    event.preventDefault();
+    create(form);
   }
 
   function startEditing() {
@@ -590,7 +889,8 @@ export function mountChecklist(root, { profile }) {
   root.addEventListener("input", onInput);
   root.addEventListener("change", onInput);
   root.addEventListener("click", onClick);
-  root.innerHTML = `<p class="loading">Loading the checklist…</p>`;
+  root.addEventListener("submit", onSubmit);
+  root.innerHTML = `<p class="loading">Loading the checklists…</p>`;
   load();
 
   /** Whether it's fine to leave: no unsaved changes, or the person agrees to lose them. */

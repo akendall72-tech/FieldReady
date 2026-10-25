@@ -33,6 +33,29 @@ export const PROFILE_FIELDS = [
   { value: "correction.service", label: "Subscribed correction service" },
 ];
 
+/** The kinds of inspection (InspectionKind in the app). */
+export const KINDS = [
+  { value: "guidance", label: "Guidance", about: "Display, receiver, steering, and correction checks, for every machine that can have guidance." },
+  { value: "planter", label: "Planter", about: "Precision Planting technology, for planters." },
+  { value: "machine", label: "Machine", about: "The condition of the machine itself. Each checklist says which equipment types it's for." },
+  { value: "custom", label: "Custom", about: "Your own checklists. Only you see them and use them in the app; once you finalize an inspection with one, your store's admins, the owners, and the customer can see that inspection." },
+];
+
+const KIND_VALUES = new Set(KINDS.map((kind) => kind.value));
+
+/** The equipment types a checklist names: one (as the first checklists saved it) or several. */
+export function typesOf(content) {
+  const equipment = content?.equipment;
+  if (equipment == null) return [];
+  return Array.isArray(equipment) ? equipment : [equipment];
+}
+
+/** A checklist's kind. Checklists saved before kinds existed are Guidance, or Planter when they're for planters. */
+export function kindOf(content) {
+  if (content?.kind != null) return content.kind;
+  return typesOf(content).includes("planter") ? "planter" : "guidance";
+}
+
 const CONDITION_VALUES = new Set(CONDITIONS.map((c) => c.value));
 const EVIDENCE_VALUES = new Set(["photo", "photoOnFail"]);
 
@@ -50,6 +73,12 @@ export function problems(content, known = {}) {
   if (!content || typeof content !== "object") return ["The checklist is empty."];
   for (const field of ["id", "version", "title", "reviewStatus"]) {
     if (!isText(content[field])) found.push(`The checklist is missing its ${field}.`);
+  }
+  if (content.kind != null && !KIND_VALUES.has(content.kind)) found.push("The checklist's kind isn't one phones know.");
+  if (content.equipment != null && !isText(content.equipment) && !isStringArray(content.equipment)) {
+    found.push("The checklist's equipment types can't be read.");
+  } else if (known.equipment_type && typesOf(content).some((type) => !known.equipment_type.has(type))) {
+    found.push("The checklist is for an equipment type phones don't know yet.");
   }
   if (!Array.isArray(content.sections)) return [...found, "The checklist has no sections."];
 
@@ -83,7 +112,7 @@ export function problems(content, known = {}) {
 
       const applies = item?.appliesTo;
       if (applies != null) {
-        const lists = { systems: "guidance_system", features: "feature", corrections: "correction_type" };
+        const lists = { systems: "guidance_system", features: "feature", corrections: "correction_type", equipment: "equipment_type" };
         for (const [field, list] of Object.entries(lists)) {
           const values = applies[field];
           if (values == null) continue;
@@ -92,6 +121,10 @@ export function problems(content, known = {}) {
         }
         if (applies.requiresAutoSteer != null && typeof applies.requiresAutoSteer !== "boolean") {
           found.push(`${name} has an unreadable auto-steer setting.`);
+        }
+        if (applies.answers != null && (typeof applies.answers !== "object" || Array.isArray(applies.answers)
+            || !Object.values(applies.answers).every(isStringArray))) {
+          found.push(`${name} has an unreadable answers setting.`);
         }
       }
 
@@ -193,6 +226,35 @@ export function newCheck(content, section, title = "New check") {
 export function newSection(content, title = "New section") {
   const taken = new Set((content?.sections ?? []).map((section) => section.key));
   return { key: uniqueKey(title, taken), title, summary: "", items: [] };
+}
+
+/**
+ * A new checklist of a kind, ready to edit: one section with one check. Its id comes from the
+ * name (`suffix` keeps custom ones apart, since nobody sees anyone else's).
+ */
+export function newChecklist({ kind, title, equipment = [], taken = new Set(), suffix = "" }) {
+  const content = {
+    id: uniqueKey(`${title}${suffix ? ` ${suffix}` : ""}`, taken, `${kind}-`),
+    version: "1",
+    title: title.trim(),
+    kind,
+    reviewStatus: "draft",
+    sections: [{ key: "general", title: "General", summary: "", items: [] }],
+  };
+  if (equipment.length) content.equipment = [...equipment];
+  content.sections[0].items.push(newCheck(content, content.sections[0]));
+  return content;
+}
+
+/** A copy of a checklist as a new one (its own id, version 1), with every check kept. */
+export function copyChecklist(source, { title, kind = kindOf(source), taken = new Set(), suffix = "" }) {
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.id = uniqueKey(`${title}${suffix ? ` ${suffix}` : ""}`, taken, `${kind}-`);
+  copy.version = "1";
+  copy.title = title.trim();
+  copy.kind = kind;
+  if (kind === "custom") copy.reviewStatus = "draft";
+  return copy;
 }
 
 /** A deep copy of the live checklist as the start of the next version. */

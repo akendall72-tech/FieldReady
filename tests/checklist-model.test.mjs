@@ -8,6 +8,7 @@
 
 import {
   problems, isNewer, nextVersion, liveVersion, slug, uniqueKey, newCheck, newSection, draftFrom, move, itemKeys,
+  kindOf, typesOf, newChecklist, copyChecklist,
 } from "../js/checklist-model.js";
 
 let passed = 0;
@@ -132,6 +133,30 @@ check("unique keys get a number", uniqueKey("Antenna", new Set(["physical.antenn
 // The app's bundled checklists pass the same rules.
 const args = typeof arguments !== "undefined" ? arguments : scriptArgs ?? [];
 const seedPath = args.find((path) => path.endsWith(".sql"));
+// Kinds and equipment types
+check("older checklists read as Guidance or Planter", kindOf({}) === "guidance" && kindOf({ equipment: "planter" }) === "planter"
+  && kindOf({ kind: "machine", equipment: ["planter"] }) === "machine");
+check("one equipment type or several", typesOf({ equipment: "planter" }).join() === "planter" && typesOf({ equipment: ["baler", "rake"] }).join() === "baler,rake"
+  && typesOf({}).length === 0);
+const fresh = newChecklist({ kind: "machine", title: "Combine preseason", equipment: ["combine"], taken: new Set(["machine-combinePreseason"]) });
+check("a new checklist gets its own id, version 1, and one check to start", fresh.id === "machine-combinePreseason2" && fresh.version === "1"
+  && fresh.kind === "machine" && fresh.equipment.join() === "combine" && fresh.sections[0].items.length === 1);
+check("…which needs its steps filled in before publishing", problems(fresh).some((p) => p.includes("How to Check step")));
+const mine = newChecklist({ kind: "custom", title: "Hitch check", suffix: "a1b2" });
+check("custom checklists carry a suffix and any type", mine.id === "custom-hitchCheckA1b2" && mine.equipment === undefined);
+const copied = copyChecklist({ ...fresh, version: "3" }, { title: "Combine harvest", taken: new Set() });
+check("a copy keeps the checks under a new id at version 1", copied.id === "machine-combineHarvest" && copied.version === "1"
+  && copied.sections[0].items.length === 1 && fresh.version === "1");
+check("unknown kinds are caught", problems({ ...fresh, kind: "drone" }).includes("The checklist's kind isn't one phones know."));
+check("unknown equipment types are caught", problems(fresh, { equipment_type: new Set(["tractor"]) })
+  .includes("The checklist is for an equipment type phones don't know yet."));
+const branching = JSON.parse(JSON.stringify(fresh));
+branching.sections[0].items[0].steps = ["Look"];
+branching.sections[0].items[0].appliesTo = { answers: { undercarriage: ["tracks"] }, equipment: ["combine"] };
+check("checks can branch on answers and types", problems(branching).length === 0);
+branching.sections[0].items[0].appliesTo = { answers: { undercarriage: "tracks" } };
+check("…in the shape phones read", problems(branching).some((p) => p.includes("answers setting")));
+
 let known = {
   guidance_system: new Set(["ptx", "fendtGuide", "mfGuide", "other"]),
   feature: new Set(["implementGuidance", "automaticTurns", "sectionControl", "isobus", "rateControl", "dataTransfer"]),

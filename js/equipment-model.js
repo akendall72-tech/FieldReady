@@ -77,8 +77,9 @@ export function cleanCustomer(customer) {
   };
 }
 
-export function cleanMachine(machine) {
+export function cleanMachine(machine, rows = []) {
   const year = String(machine.model_year ?? "").trim();
+  const type = machine.equipment_type || "tractor";
   return {
     customer_id: machine.customer_id,
     location_id: machine.location_id,
@@ -92,10 +93,55 @@ export function cleanMachine(machine) {
     guidance_software: machine.guidance_software || "unknown",
     steering: machine.steering || "unknown",
     correction: machine.correction || "unknown",
+    details: cleanAnswers(rows, type, machine.details),
   };
 }
 
+/**
+ * A machine's answers as saved: answered questions only, dropping answers to questions that only
+ * other equipment types ask (a question this page doesn't know is kept).
+ */
+export function cleanAnswers(rows, type, details) {
+  return Object.fromEntries(Object.entries(details ?? {}).filter(([question, answer]) => {
+    if (!question || !String(answer ?? "").trim()) return false;
+    const known = rows.find((row) => row.list === "machine_question" && row.value === question);
+    return !known || usedOn(known).includes(type);
+  }));
+}
+
 // ---------------------------------------------------------------- options
+
+/** Whether machines of this type can carry guidance technology (the app's rule: tractors, unless the type says). */
+export function canHaveGuidance(rows, type) {
+  const row = rows.find((r) => r.list === "equipment_type" && r.value === type);
+  return typeof row?.details?.guidance === "boolean" ? row.details.guidance : type === "tractor";
+}
+
+/** Whether machines of this type record Precision Planting products. */
+export function hasPlanterTechnology(rows, type) {
+  const row = rows.find((r) => r.list === "equipment_type" && r.value === type);
+  return typeof row?.details?.planter === "boolean" ? row.details.planter : type === "planter";
+}
+
+/** The questions asked about a machine of this type, in order (plus `answered` ones that are hidden). */
+export const questionsFor = (rows, type, answered = []) => {
+  const shown = choices(rows, "machine_question", { equipmentType: type });
+  for (const value of answered) {
+    const row = rows.find((r) => r.list === "machine_question" && r.value === value);
+    if (row && !shown.includes(row) && usedOn(row).includes(type)) shown.push(row);
+  }
+  return shown;
+};
+
+/** A question's answers, in order, plus the current answer when it's hidden or unknown. */
+export function answerChoices(rows, question, current = null) {
+  const all = optionsIn(rows, "machine_answer", question);
+  const shown = all.filter((row) => row.active);
+  if (current && !shown.some((row) => row.value === current)) {
+    shown.push(all.find((row) => row.value === current) ?? { list: "machine_answer", value: current, label: current, active: false, details: {} });
+  }
+  return shown;
+}
 
 /** Whether a guidance system is factory-integrated (its software and steering are built in). */
 export const isFactoryIntegrated = (rows, system) =>
@@ -112,7 +158,7 @@ export function steeringFor(rows, system, steering) {
  * the machine's equipment type), plus the current value when it's hidden, so it still shows.
  */
 export function choices(rows, list, { equipmentType = null, current = null } = {}) {
-  const fits = (row) => row.active && (!equipmentType || !["feature", "component_kind"].includes(list) || usedOn(row).includes(equipmentType));
+  const fits = (row) => row.active && (!equipmentType || !["feature", "component_kind", "machine_question"].includes(list) || usedOn(row).includes(equipmentType));
   const shown = optionsIn(rows, list).filter(fits);
   if (current && !shown.some((row) => row.value === current)) {
     const kept = optionsIn(rows, list).find((row) => row.value === current);

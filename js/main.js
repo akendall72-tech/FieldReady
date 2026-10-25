@@ -1,5 +1,6 @@
 // The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
-// every page; employees see Customers & machines for their store. Customer logins use the app.
+// every page; employees see Customers & machines for their store and their own Custom checklists.
+// Customer logins use the app.
 
 import { supabase, signIn, signOut, loadProfile, describe } from "./api.js";
 import { escape } from "./ui.js";
@@ -14,7 +15,7 @@ const STAFF = ["owner", "admin", "employee"];
 const MANAGERS = ["owner", "admin"];
 
 const PAGES = [
-  { id: "checklist", label: "Inspection checklist", mount: mountChecklist, roles: MANAGERS },
+  { id: "checklist", label: "Inspection checklists", mount: mountChecklist, roles: STAFF },
   { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
@@ -25,10 +26,11 @@ const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee" };
 /** The pages this person may open. */
 const pagesFor = (profile) => PAGES.filter((page) => page.roles.includes(profile?.role));
 
-/** The page named in the address (#options) if this person may open it, or their first page. */
+/** The page named in the address (#options) if this person may open it, or their first page (employees: customers). */
 function pageFromAddress(profile = current.profile) {
   const allowed = profile ? pagesFor(profile) : PAGES;
-  return allowed.find((page) => `#${page.id}` === location.hash)?.id ?? allowed[0]?.id ?? "checklist";
+  const first = profile?.role === "employee" ? allowed.find((page) => page.id === "customers") : allowed[0];
+  return allowed.find((page) => `#${page.id}` === location.hash)?.id ?? first?.id ?? "checklist";
 }
 
 let current = { session: null, profile: null, page: null, leaveCheck: null };

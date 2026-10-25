@@ -6,7 +6,7 @@
 import {
   canEdit, canManage, storesFor, canDeleteMachine, canDeleteCustomer, customerProblems, machineProblems, cleanMachine,
   isFactoryIntegrated, steeringFor, choices, hasCorrectionLevel, serviceGroups, featureChanges, featureStates, machineName,
-  findCustomers,
+  findCustomers, canHaveGuidance, hasPlanterTechnology, questionsFor, answerChoices, cleanAnswers,
 } from "../js/equipment-model.js";
 
 let passed = 0;
@@ -81,6 +81,31 @@ check("receivers have a correction level", hasCorrectionLevel(rows, "receiver") 
 const groups = serviceGroups(rows, "networkRTK");
 check("services are grouped under their heading", groups.map((g) => `${g.title}:${g.services.join("+")}`).join("|") === "Trimble:VRS Now|Other networks:Local network");
 check("other correction types list nothing", serviceGroups(rows, "satellite").length === 0);
+
+// Equipment types and their questions
+const typed = [
+  { list: "equipment_type", value: "tractor", label: "Tractor", sort_order: 0, active: true, details: {} },
+  { list: "equipment_type", value: "planter", label: "Planter", sort_order: 1, active: true, details: {} },
+  { list: "equipment_type", value: "combine", label: "Combine", sort_order: 2, active: true, details: { guidance: true, planter: false } },
+  { list: "equipment_type", value: "baler", label: "Baler", sort_order: 3, active: true, details: { guidance: false, planter: false } },
+  { list: "machine_question", value: "undercarriage", label: "Wheels or tracks", sort_order: 0, active: true, details: { equipment: ["tractor", "combine"] } },
+  { list: "machine_question", value: "balerType", label: "Baler type", sort_order: 1, active: true, details: { equipment: ["baler"] } },
+  { list: "machine_question", value: "old", label: "Retired question", sort_order: 2, active: false, details: { equipment: ["baler"] } },
+  { list: "machine_answer", value: "wheels", label: "Wheels", parent_value: "undercarriage", sort_order: 0, active: true, details: {} },
+  { list: "machine_answer", value: "tracks", label: "Tracks", parent_value: "undercarriage", sort_order: 1, active: true, details: {} },
+  { list: "machine_answer", value: "steel", label: "Steel", parent_value: "undercarriage", sort_order: 2, active: false, details: {} },
+];
+check("types without settings follow the app: tractors have guidance, planters planter technology",
+  canHaveGuidance(typed, "tractor") && !canHaveGuidance(typed, "planter") && hasPlanterTechnology(typed, "planter") && !hasPlanterTechnology(typed, "tractor"));
+check("type settings decide the rest", canHaveGuidance(typed, "combine") && !canHaveGuidance(typed, "baler") && !canHaveGuidance(typed, "skidSteer"));
+check("each type is asked its own questions", questionsFor(typed, "combine").map((q) => q.value).join() === "undercarriage"
+  && questionsFor(typed, "baler").map((q) => q.value).join() === "balerType");
+check("a hidden question still shows on a machine that answered it", questionsFor(typed, "baler", ["old"]).map((q) => q.value).join() === "balerType,old");
+check("answers sit under their question; a hidden one shows only when chosen", answerChoices(typed, "undercarriage").map((a) => a.value).join() === "wheels,tracks"
+  && answerChoices(typed, "undercarriage", "steel").map((a) => a.value).join() === "wheels,tracks,steel");
+check("saved answers drop blanks and other types' questions, but keep unknown ones",
+  JSON.stringify(cleanAnswers(typed, "combine", { undercarriage: "tracks", balerType: "round", loader: "", future: "x" })) === '{"undercarriage":"tracks","future":"x"}');
+check("a cleaned machine carries its answers", cleanMachine({ manufacturer: "Gleaner", equipment_type: "combine", details: { undercarriage: "tracks" } }, typed).details.undercarriage === "tracks");
 
 // Features
 const existing = [{ id: "f1", kind: "isobus", state: "installed" }, { id: "f2", kind: "legacy", state: "unknown" }];
