@@ -177,7 +177,7 @@ export function mountCustomers(root, { profile }) {
         <button class="machine${machine.archived_at ? " archived" : ""}" data-action="open-machine" data-id="${escape(machine.id)}"${attr("disabled", state.busy)}>
           <span class="type-tag type-${escape(type)}">${escape(typeLabel(type))}</span>
           <span class="machine-text">
-            <strong>${escape(model.machineName(machine))}</strong>${machine.archived_at ? ' <span class="tag">Archived</span>' : ""}
+            <strong>${escape(model.machineName(machine))}</strong>${machine.archived_at ? ' <span class="tag">Archived</span>' : ""}${machine.customer_changed ? ' <span class="tag tag-customer">Changed by the customer</span>' : ""}
             <span class="hint">${details.map(escape).join(" · ")}</span>
           </span>
           <span class="chevron" aria-hidden="true">›</span>

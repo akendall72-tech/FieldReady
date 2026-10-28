@@ -288,7 +288,7 @@ export async function deleteContact(id) {
 
 // ---------------------------------------------------------------- customers and machines
 
-const MACHINE_LIST_COLUMNS = "id, organization_id, customer_id, location_id, equipment_type, manufacturer, model_name, model_year, serial_number, archived_at, updated_at";
+const MACHINE_LIST_COLUMNS = "id, organization_id, customer_id, location_id, equipment_type, manufacturer, model_name, model_year, serial_number, archived_at, customer_changed, updated_at";
 
 /** Every machine this person may see, with how many finalized inspections each has. */
 export async function loadMachines() {
@@ -338,6 +338,16 @@ export const saveCustomer = (customer, values) => saveRecord("customers", custom
 export const saveMachine = (machine, values) => saveRecord("machines", machine, values, "this machine");
 
 /** Archives (or brings back) a customer or machine. Only owners and admins can; for others the server keeps the date as it was. */
+/**
+ * Marks a machine the customer added or changed as checked by staff (the server clears the mark
+ * for staff; anything else about the machine stays as it is).
+ */
+export async function markChecked(machine) {
+  const rows = unwrap(await supabase.from("machines").update({ customer_changed: false })
+    .eq("id", machine.id).eq("updated_at", machine.updated_at).select("id, customer_changed"));
+  if (rows.length === 0) throw new SaveConflict("Someone else changed this machine since you opened it.");
+}
+
 export async function setArchived(table, record, archived) {
   const rows = unwrap(await supabase.from(table).update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", record.id).eq("updated_at", record.updated_at).select("id, archived_at"));

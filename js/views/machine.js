@@ -97,6 +97,11 @@ export function mountMachine(root, ctx) {
         </div>
       </div>
       ${editable() ? "" : '<p class="callout">This machine is at another store, so you can look but not change it.</p>'}
+      ${machine?.customer_changed ? `
+        <div class="card customer-changed">
+          <p><strong>The customer added or changed this machine in their app.</strong> Check its details and technology. Saving a change here, or Mark Checked, clears this.</p>
+          ${editable() ? `<button class="secondary" data-action="mark-checked"${attr("disabled", state.busy)}>Mark Checked</button>` : ""}
+        </div>` : ""}
       ${detailsCard()}
       ${machine ? featuresCard() + componentsCard() + (hasGuidance() || machine.correction_subscriptions?.length ? subscriptionsCard() : "") + manageCard() : ""}`;
   }
@@ -429,6 +434,12 @@ export function mountMachine(root, ctx) {
       case "save-subscription": return savePart("subscription", id);
       case "remove-subscription": return removePart("subscription", id);
       case "archive": return archive();
+      case "mark-checked":
+        return run(async () => {
+          await api.markChecked(state.machine);
+          await reload();
+          return "Marked as checked.";
+        });
       case "delete": return deleteMachine();
     }
   }

@@ -236,6 +236,9 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 
 [hidden] { display: none !important; }
 h3 { font-size: 0.95rem; font-stretch: expanded; margin: 20px 0 0; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.tag.tag-customer { background: color-mix(in srgb, var(--signal-orange) 18%, var(--surface)); color: var(--rust); }
+.card.customer-changed { border-color: var(--signal-orange); }
+.card.customer-changed p { margin-bottom: 10px; }
 .tag { display: inline-block; font-weight: 700; font-size: 0.75rem; border-radius: 6px; padding: 0 7px; background: var(--hairline); color: var(--text-secondary); vertical-align: 1px; }
 .customer.archived > .customer-head strong { color: var(--text-secondary); }
 .customer-head .tools { flex-shrink: 0; }
