@@ -296,3 +296,12 @@ details.answer-groups summary { cursor: pointer; font-weight: 600; font-size: 0.
   .page, .topbar { padding-left: 16px; padding-right: 16px; }
   .tabs { padding: 0 8px; }
 }
+
+/* ---------- privacy policy and support pages */
+
+.page.legal { max-width: 760px; }
+.legal .hero { margin-bottom: 20px; }
+.legal .card h2 { margin-bottom: 10px; }
+.legal .card ul { padding-left: 20px; margin: 0 0 8px; }
+.legal .card li { margin-bottom: 6px; }
+.legal a { color: var(--pine); font-weight: 600; }

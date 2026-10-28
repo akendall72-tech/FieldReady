@@ -7,7 +7,7 @@
 // everything else goes straight to the database, whose access rules have the final say.
 
 import * as api from "../api.js";
-import { escape, attr, notice } from "../ui.js";
+import { escape, attr, notice, formatDate } from "../ui.js";
 import * as model from "../people-model.js";
 import { canEditContacts, contactGroups, contactProblems } from "../customers-model.js";
 
@@ -23,6 +23,8 @@ export function mountPeople(root, { profile }) {
     allInvitations: [],
     stores: [],
     contacts: [],
+    /** Owners: requests (made in the app) to delete a login. */
+    deletionRequests: [],
     /** The store whose contacts are open (owners pick one; admins see their own). */
     contactsStore: isOwner ? null : profile.location_id,
     /** A contact being added: its store, role, and details so far. */
@@ -49,9 +51,11 @@ export function mountPeople(root, { profile }) {
   // ---------------------------------------------------------------- loading
 
   async function fetchAll() {
-    const [people, invitations, stores, contacts] = await Promise.all([
+    const [people, invitations, stores, contacts, deletionRequests] = await Promise.all([
       api.loadPeople(), api.loadInvitations(), api.loadStores(), api.loadContacts(),
+      isOwner ? api.loadDeletionRequests() : [],
     ]);
+    state.deletionRequests = deletionRequests;
     state.everyone = people;
     state.people = model.sortPeople(people.filter((person) => person.role !== "customer"));
     state.allInvitations = invitations;
@@ -94,6 +98,7 @@ export function mountPeople(root, { profile }) {
         </div>
       </div>
       ${isOwner ? "" : `<p class="callout">As an admin you add and manage the employees at ${escape(storeName(profile.location_id))}. Owners manage everyone else and the stores.</p>`}
+      ${deletionCard()}
       ${handoverCard()}
       ${state.adding ? addForm() : ""}
       ${peopleCard()}
@@ -190,6 +195,29 @@ export function mountPeople(root, { profile }) {
       await fetchAll();
       return `Removed ${contact.name}.`;
     });
+  }
+
+  /** Owners: people who asked in the app for their login to be deleted (Apple requires the option). */
+  function deletionCard() {
+    if (!isOwner || state.deletionRequests.length === 0) return "";
+    const roleName = (role) => ({ owner: "Owner", admin: "Admin", employee: "Employee", customer: "Customer login" })[role] ?? role;
+    return `
+      <div class="card warning">
+        <h2>Asked to delete their login</h2>
+        <p class="hint">These people asked in the Field Ready app for their account to be deleted. Delete Login removes the login for good;
+          inspections they did and their machines stay as Agri-Service records. Decline keeps it (tell them why).</p>
+        <ol class="person-list">
+          ${state.deletionRequests.map((request) => `
+            <li class="login">
+              <span><strong>${escape(request.full_name || request.email)}</strong>
+                <span class="hint">${escape([request.email, roleName(request.role), `asked ${formatDate(request.requested_at)}`].filter(Boolean).join(" · "))}</span></span>
+              <span class="tools">
+                <button class="danger" data-action="delete-login" data-id="${escape(request.profile_id)}" data-name="${escape(request.full_name || request.email)}"${attr("disabled", state.busy)}>Delete Login</button>
+                <button class="link" data-action="decline-deletion" data-request="${escape(request.id)}"${attr("disabled", state.busy)}>Decline</button>
+              </span>
+            </li>`).join("")}
+        </ol>
+      </div>`;
   }
 
   function handoverCard() {
@@ -424,6 +452,22 @@ export function mountPeople(root, { profile }) {
     const person = personFor(element.dataset.id);
     switch (element.dataset.action) {
       case "reload": return load();
+      case "delete-login": {
+        const name = element.dataset.name;
+        if (!confirm(`Delete ${name}'s login for good? They can't sign in again, and this can't be undone. Inspections they did and their machines stay.`)) return;
+        return run(async () => {
+          await api.callPeople("deleteLogin", { userId: element.dataset.id });
+          await fetchAll();
+          return `Deleted ${name}'s login.`;
+        });
+      }
+      case "decline-deletion":
+        if (!confirm("Decline this request? Their login stays. Let them know why.")) return;
+        return run(async () => {
+          await api.declineDeletionRequest(element.dataset.request);
+          await fetchAll();
+          return "Request declined.";
+        });
       case "add":
         state.adding = true;
         state.newPerson = blankPerson();

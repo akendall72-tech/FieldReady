@@ -204,6 +204,19 @@ export async function savePerson(person, changes) {
   if (rows.length === 0) throw new SaveConflict(`Someone else changed ${person.full_name || person.email} since you opened this page, or your access doesn't allow that change.`);
 }
 
+/** Requests (made in the app) to delete a login. Owners see everyone's; others only their own. */
+export async function loadDeletionRequests() {
+  return unwrap(await supabase
+    .from("account_deletion_requests")
+    .select("id, profile_id, full_name, email, role, requested_at")
+    .order("requested_at", { ascending: true }));
+}
+
+/** Declines a deletion request: the login stays. */
+export async function declineDeletionRequest(id) {
+  unwrap(await supabase.from("account_deletion_requests").delete().eq("id", id));
+}
+
 export async function cancelInvitation(email) {
   unwrap(await supabase.from("invitations").delete().eq("email", email));
 }
