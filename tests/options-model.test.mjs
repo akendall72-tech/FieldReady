@@ -6,7 +6,7 @@
 // The optional argument is the app's default option seed, whose lists must all be known here.
 
 import {
-  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn, shownSymbol,
+  LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn, usedWith, shownSymbol,
 } from "../js/options-model.js";
 
 let passed = 0;
@@ -91,6 +91,14 @@ const sample = () => [
   const unsure = newOption(rows, "feature", "Yield monitor", { organizationId: "org" });
   check("…or on nothing yet, which must be fixed before saving", unsure.details.equipment.length === 0
     && problems([...rows, unsure]).some((p) => p.includes("isn't used on any equipment type")));
+}
+
+// Guidance software ("used with")
+{
+  check("guidance software says which systems it's used with", LISTS.find((list) => list.id === "guidance_software").settings.map((setting) => setting.key).join() === "systems");
+  check("software saved before the setting is used with every system", usedWith(row("guidance_software", "ezPilot", "EZ-Pilot", 0)).length === 0);
+  const kit = newOption(sample(), "guidance_software", "Shop-built kit", { organizationId: "org" });
+  check("new software starts used with every system", Array.isArray(kit.details.systems) && kit.details.systems.length === 0);
 }
 
 // Moving

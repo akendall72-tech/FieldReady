@@ -57,8 +57,8 @@ export const LISTS = [
   {
     id: "guidance_software",
     title: "Guidance software",
-    about: "The steering product on aftermarket systems. Not asked for factory-integrated systems.",
-    settings: [],
+    about: "The steering product on aftermarket systems, offered only for the guidance systems it's used with (with none chosen, for every system). Not asked for factory-integrated systems.",
+    settings: [{ key: "systems", type: "systems", label: "Used with" }],
     fixed: ["unknown"],
   },
   {
@@ -180,6 +180,9 @@ export const hasUsedOn = (list) => (listInfo(list)?.settings ?? []).some((settin
 /** The equipment types an option is used on. Options saved before planters existed are tractor options. */
 export const usedOn = (row) => (Array.isArray(row.details?.equipment) ? row.details.equipment : ["tractor"]);
 
+/** The guidance systems guidance software is used with; none means every system. */
+export const usedWith = (row) => (Array.isArray(row.details?.systems) ? row.details.systems : []);
+
 /** The options of one list (and one parent, for correction services), in order. */
 export function optionsIn(rows, list, parent = null) {
   return rows
@@ -213,6 +216,7 @@ export function newOption(rows, list, label, { organizationId, parent = null, eq
     if (setting.type === "bool") details[setting.key] = false;
     if (setting.type === "tristate") details[setting.key] = null;
     if (setting.type === "equipment") details[setting.key] = equipment ? [equipment] : [];
+    if (setting.type === "systems") details[setting.key] = [];
   }
   if (list === "correction_service") details.provider = "";
   return {

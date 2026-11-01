@@ -35,6 +35,7 @@ export function mountOptions(root, { profile }) {
   const visibleRows = () => model.optionsIn(state.rows, state.list, info().parentList ? parent() : null)
     .filter((row) => !state.equipment || !model.hasUsedOn(state.list) || model.usedOn(row).includes(state.equipment));
   const equipmentTypes = () => model.optionsIn(state.rows, "equipment_type");
+  const guidanceSystems = () => model.optionsIn(state.rows, "guidance_system");
 
   // ---------------------------------------------------------------- loading
 
@@ -219,6 +220,15 @@ export function mountOptions(root, { profile }) {
               <label class="check"><input type="checkbox" ${data} data-value="${escape(type.value)}"${attr("checked", chosen.includes(type.value))}${disabled}> ${escape(type.label)}</label>`).join("")}
           </div>`;
       }
+      case "systems": {
+        const chosen = model.usedWith(row);
+        return `
+          <div class="choices">
+            <span class="choices-title">${escape(setting.label)} <span class="hint">(none: every system)</span></span>
+            ${guidanceSystems().map((system) => `
+              <label class="check"><input type="checkbox" ${data} data-value="${escape(system.value)}"${attr("checked", chosen.includes(system.value))}${disabled}> ${escape(system.label)}</label>`).join("")}
+          </div>`;
+      }
       case "symbol": {
         // A row without its own icon shows the one the app uses for it.
         const shown = model.shownSymbol(row);
@@ -271,6 +281,12 @@ export function mountOptions(root, { profile }) {
           if (element.checked) chosen.add(element.dataset.value);
           else chosen.delete(element.dataset.value);
           details[name] = equipmentTypes().map((type) => type.value).filter((value) => chosen.has(value));
+        }
+        else if (element.dataset.type === "systems") {
+          const chosen = new Set(model.usedWith(row));
+          if (element.checked) chosen.add(element.dataset.value);
+          else chosen.delete(element.dataset.value);
+          details[name] = guidanceSystems().map((system) => system.value).filter((value) => chosen.has(value));
         }
         else if (element.dataset.type === "tristate") details[name] = element.value === "" ? null : element.value === "yes";
         else details[name] = element.value;

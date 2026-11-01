@@ -7,6 +7,7 @@ import {
   canEdit, canManage, storesFor, canDeleteMachine, canDeleteCustomer, customerProblems, machineProblems, cleanMachine,
   isFactoryIntegrated, steeringFor, choices, hasCorrectionLevel, serviceGroups, featureChanges, featureStates, machineName,
   findCustomers, canHaveGuidance, hasPlanterTechnology, questionsFor, answerChoices, cleanAnswers,
+  softwareFits, softwareFor, softwareAfterSystemChange,
 } from "../js/equipment-model.js";
 
 let passed = 0;
@@ -78,6 +79,23 @@ check("planters get planter features", choices(rows, "feature", { equipmentType:
 check("tractors get tractor features, including ones saved before planters", choices(rows, "feature", { equipmentType: "tractor" }).map((r) => r.value).join() === "isobus,legacy");
 check("component types follow the equipment type", choices(rows, "component_kind", { equipmentType: "planter" }).map((r) => r.value).join() === "display");
 check("receivers have a correction level", hasCorrectionLevel(rows, "receiver") && !hasCorrectionLevel(rows, "display"));
+
+// Guidance software follows the guidance system ("Used with")
+const software = [
+  { list: "guidance_software", value: "ezPilot", label: "EZ-Pilot", sort_order: 0, active: true, details: { systems: ["ptx"] } },
+  { list: "guidance_software", value: "greenFit", label: "GREEN FIT (Reichhardt)", sort_order: 1, active: true, details: { systems: ["johnDeere"] } },
+  { list: "guidance_software", value: "homemade", label: "Shop-built kit", sort_order: 2, active: true, details: { systems: [] } },
+  { list: "guidance_software", value: "unknown", label: "Unknown", sort_order: 3, active: true, details: {} },
+];
+check("each system offers its own software, plus software used with every system",
+  softwareFor(software, "johnDeere").map((r) => r.value).join() === "greenFit,homemade,unknown"
+  && softwareFor(software, "ptx").map((r) => r.value).join() === "ezPilot,homemade,unknown");
+check("a machine's current software still shows under another system", softwareFor(software, "raven", "ezPilot").map((r) => r.value).join() === "ezPilot,homemade,unknown");
+check("software without a system setting fits every system", softwareFits(software, "unknown", "raven") && softwareFits(software, "spaceship", "raven"));
+check("switching systems resets software that belongs to another one",
+  softwareAfterSystemChange(software, "johnDeere", "ezPilot") === "unknown"
+  && softwareAfterSystemChange(software, "johnDeere", "greenFit") === "greenFit"
+  && softwareAfterSystemChange(software, "johnDeere", "homemade") === "homemade");
 const groups = serviceGroups(rows, "networkRTK");
 check("services are grouped under their heading", groups.map((g) => `${g.title}:${g.services.join("+")}`).join("|") === "Trimble:VRS Now|Other networks:Local network");
 check("other correction types list nothing", serviceGroups(rows, "satellite").length === 0);

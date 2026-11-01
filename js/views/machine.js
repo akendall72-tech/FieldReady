@@ -110,7 +110,7 @@ export function mountMachine(root, ctx) {
 
   function select(field, list, value, extra = {}) {
     return `<select data-field="${field}"${disabled()}>
-      ${model.choices(rows, list, { current: value, ...extra }).filter((o) => !extra.hide?.includes(o.value) || o.value === value)
+      ${(extra.options ?? model.choices(rows, list, { current: value, ...extra })).filter((o) => !extra.hide?.includes(o.value) || o.value === value)
         .map((o) => `<option value="${escape(o.value)}"${attr("selected", o.value === value)}>${escape(o.label)}${o.active === false ? " (hidden)" : ""}</option>`).join("")}
     </select>`;
   }
@@ -148,7 +148,7 @@ export function mountMachine(root, ctx) {
             <label>Guidance system ${select("guidance_system", "guidance_system", d.guidance_system)}</label>
             ${factory
               ? `<label>Guidance software <input value="Built into ${escape(model.labelFor(rows, "guidance_system", d.guidance_system))}" disabled></label>`
-              : `<label>Guidance software ${select("guidance_software", "guidance_software", d.guidance_software)}</label>`}
+              : `<label>Guidance software ${select("guidance_software", "guidance_software", d.guidance_software, { options: model.softwareFor(rows, d.guidance_system, d.guidance_software) })}</label>`}
             ${factory
               ? `<label>Steering <input value="${escape(model.labelFor(rows, "steering", "factoryIntegrated"))}" disabled></label>`
               : `<label>Steering ${select("steering", "steering", d.steering, { hide: ["factoryIntegrated"] })}</label>`}
@@ -365,6 +365,7 @@ export function mountMachine(root, ctx) {
       state.draft[field] = element.value;
       if (field === "guidance_system") {
         state.draft.steering = model.steeringFor(rows, element.value, state.draft.steering);
+        state.draft.guidance_software = model.softwareAfterSystemChange(rows, element.value, state.draft.guidance_software);
         return render();
       }
       if (field === "equipment_type") return render();

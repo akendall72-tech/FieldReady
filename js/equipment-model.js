@@ -154,6 +154,23 @@ export function steeringFor(rows, system, steering) {
 }
 
 /**
+ * Whether guidance software belongs with a guidance system (the app's rule): its "Used with"
+ * systems list it, or it lists none (Unknown, or a product added without the setting).
+ */
+export function softwareFits(rows, software, system) {
+  const row = rows.find((r) => r.list === "guidance_software" && r.value === software);
+  const systems = Array.isArray(row?.details?.systems) ? row.details.systems : [];
+  return systems.length === 0 || systems.includes(system);
+}
+
+/** Guidance software for a picker: the products for this system, plus the current value so it still shows. */
+export const softwareFor = (rows, system, current = null) =>
+  choices(rows, "guidance_software", { current }).filter((row) => row.value === current || softwareFits(rows, row.value, system));
+
+/** Switching guidance systems puts software that belongs to another system back to Unknown (as the app does). */
+export const softwareAfterSystemChange = (rows, system, software) => (softwareFits(rows, software, system) ? software : "unknown");
+
+/**
  * A list's options for a picker: active ones (for features and component types, only those used on
  * the machine's equipment type), plus the current value when it's hidden, so it still shows.
  */
