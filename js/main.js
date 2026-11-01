@@ -50,6 +50,7 @@ function renderSignIn(message = "") {
           ${message ? `<p class="form-error" role="alert">${escape(message)}</p>` : ""}
           <button class="primary" type="submit">Sign In</button>
           <p class="hint">Forgot your password or need an account? Ask your Field Ready owner.</p>
+          <p class="hint">New here? Read the <a class="guide-link" href="admin-guide.html" target="_blank" rel="noopener">Admin Website Guide</a>.</p>
         </form>
       </div>
     </main>`;
@@ -89,6 +90,7 @@ function renderShell() {
       <div class="brand"><span class="mark" aria-hidden="true"></span><span>Field Ready <strong>Admin</strong></span></div>
       <div class="who">
         <span>${escape(profile.full_name || profile.email)} · ${roleLabel}${profile.organizations?.name ? ` · ${escape(profile.organizations.name)}` : ""}</span>
+        <a class="guide-link" href="admin-guide.html" target="_blank" rel="noopener">Guide</a>
         <button class="link" data-signout>Sign Out</button>
       </div>
     </header>

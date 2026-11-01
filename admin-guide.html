@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Field Ready Admin Website Guide</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <!-- Made by Tools/make_guide_pages.py in the app's repository from Guides/admin-website-guide.md. Edit that, not this. -->
+  <main class="page legal guide" id="top-of-page">
+    <p class="guide-back"><a href="./">← Field Ready Admin</a></p>
+    <div class="hero">
+      <p class="eyebrow">Field Ready</p>
+      <h1>Field Ready Admin Website Guide</h1>
+      <p>The Field Ready Admin website is where staff manage what the app works from: customers and machines, people and stores, inspection checklists, and machine options. Open it at <a href="https://akendall72-tech.github.io/FieldReady/">akendall72-tech.github.io/FieldReady</a> and sign in with your Field Ready email and password. The app has its own guide, the <a href="guide.html">Field Ready Field Guide</a>.</p>
+      <p class="guide-updated">Updated November 1, 2026</p>
+    </div>
+    <nav class="card guide-toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol><li><a href="#at-a-glance">At a glance</a></li><li><a href="#signing-in-and-what-each-role-can-open">Signing in and what each role can open</a></li><li><a href="#customers-machines">Customers &amp; machines</a></li><li><a href="#people-stores">People &amp; stores</a></li><li><a href="#inspection-checklists">Inspection checklists</a></li><li><a href="#machine-options">Machine options</a></li><li><a href="#how-changes-reach-the-phones">How changes reach the phones</a></li><li><a href="#troubleshooting-and-common-questions">Troubleshooting and common questions</a></li></ol>
+    </nav>
+<section class="card" id="at-a-glance">
+<h2>At a glance</h2>
+<figure class="diagram">
+<svg viewBox="0 0 760 296" role="img" aria-label="Every change meets on the server; phones pick it up at their next sync" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="sharing-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="dg-arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="dg-title" x="24" y="34">Every change meets on the server; phones pick it up at their next sync</text>
+<path class="dg-line" d="M204 170H300" marker-start="url(#sharing-arrow)" marker-end="url(#sharing-arrow)"/>
+<path class="dg-line" d="M460 152H502V104H544" marker-start="url(#sharing-arrow)" marker-end="url(#sharing-arrow)"/>
+<path class="dg-line" d="M460 188H502V236H544" marker-start="url(#sharing-arrow)" marker-end="url(#sharing-arrow)"/>
+<rect class="dg-box" x="24" y="134" width="180" height="72" rx="8"/><text class="dg-name" x="114" y="158">Admin website</text><text class="dg-note" x="114" y="174">customers, machines,</text><text class="dg-note" x="114" y="190">checklists, options</text>
+<rect class="dg-accent" x="300" y="134" width="160" height="72" rx="8"/><text class="dg-name" x="380" y="158">Server</text><text class="dg-note" x="380" y="174">one shared set</text><text class="dg-note" x="380" y="190">of records</text>
+<rect class="dg-box" x="544" y="68" width="192" height="72" rx="8"/><text class="dg-name" x="640" y="92">Staff phones</text><text class="dg-note" x="640" y="108">technicians&#x27; inspections</text><text class="dg-note" x="640" y="124">saved offline, then synced</text>
+<rect class="dg-box" x="544" y="200" width="192" height="72" rx="8"/><text class="dg-name" x="640" y="224">Customer phones</text><text class="dg-note" x="640" y="240">their own farm only:</text><text class="dg-note" x="640" y="256">machines and reports</text>
+<text class="dg-note" x="252" y="162">saves at once</text>
+<text class="dg-note" x="380" y="226">phones sync both ways:</text>
+<text class="dg-note" x="380" y="242">every 5 minutes and after edits</text>
+</svg>
+</figure>
+<p>The website saves straight to the server, and every phone syncs with it on its own schedule. Each person, and each phone, only ever gets what their role and store allow.</p>
+</section>
+<section class="card" id="signing-in-and-what-each-role-can-open">
+<h2>Signing in and what each role can open</h2>
+<p>Sign in with the same email and password you use in the Field Ready app. Each role sees only the pages it needs, listed along the top.</p>
+<div class="table-wrap"><table><thead><tr><th>Page</th><th>Owner</th><th>Admin</th><th>Employee</th></tr></thead><tbody><tr><td>Customers &amp; machines</td><td>Every store</td><td>Their store's customers and machines</td><td>Their store's customers and machines</td></tr><tr><td>Inspection checklists</td><td>Every kind: edit and publish</td><td>Edit How to Check steps on a draft; make their own Custom checklists</td><td>Custom only: their own</td></tr><tr><td>Machine options</td><td>Edit every list</td><td>Look only</td><td>Not shown</td></tr><tr><td>People &amp; stores</td><td>Everyone and every store</td><td>The employees at their store, and their store's contacts</td><td>Not shown</td></tr></tbody></table></div>
+<p>Customer logins can't use the website; it tells them to use the app instead. If you see <strong>No website access</strong>, your login doesn't have a staff role. Forgot your password? Ask an owner or admin for a new temporary one.</p>
+</section>
+<section class="card" id="customers-machines">
+<h2>Customers &amp; machines</h2>
+<p>This page keeps the same customer and machine records the app uses, so office staff can set up equipment before a technician arrives. Changes here reach phones at their next sync; inspections themselves are done only in the app.</p>
+<h3>Finding a customer</h3>
+<p>Use <strong>Search</strong> for a customer, machine, or serial number, and the <strong>Store</strong> filter to narrow to one store (owners see <strong>Every store</strong>). Turn on <strong>Show archived</strong> to include archived customers and machines. Each customer is listed with their machines underneath; a machine tagged <strong>Changed by the customer</strong> was added or edited in the customer's own app.</p>
+<h3>Adding and editing a customer</h3>
+<ol><li>Tap <strong>Add Customer</strong>, or <strong>Edit</strong> on a customer.</li><li>Enter the <strong>Name</strong>, and the <strong>Phone</strong>, <strong>Email</strong>, and home <strong>Store</strong>.</li><li>Tap <strong>Save</strong>.</li></ol>
+<p><strong>Archive</strong> hides a customer and their machines from lists in the app and here; their history stays and you can bring them back. <strong>Delete Customer</strong> removes them with their machines everywhere. A customer with any finalized inspection can be archived but not deleted. Only owners, and admins at the customer's store, can archive or delete.</p>
+<h3>A machine's page</h3>
+<p>Tap a machine, or <strong>Add Machine</strong> under a customer, to open its page. It has the same parts as the app's machine screens:</p>
+<ul><li><strong>Details</strong>: customer, equipment type, manufacturer, model, model year, serial number, where it's kept, and the store.</li><li><strong>Technology</strong>: guidance system, guidance software (only the chosen system's products), steering, and correction. Choose Unknown rather than guessing.</li><li><strong>About this machine</strong>: the equipment type's questions. Leave any you can't confirm as <strong>Not answered</strong>; every check stays in.</li><li><strong>Components</strong>: <strong>+ Add component</strong> for each part, with its type, model, serial number, software or firmware, correction level for receivers, how sure you are, and notes.</li><li><strong>Correction subscriptions</strong>: <strong>+ Add subscription</strong>, choosing a listed service or <strong>Custom service</strong>, the account reference, expiration, source, and the date it was checked. Never enter passwords or login details.</li><li><strong>Archive or delete</strong>: archive hides the machine and keeps its history; <strong>Delete Machine</strong> removes it with its technology, subscriptions, and draft inspections everywhere, and isn't offered once it has a finalized inspection.</li></ul>
+<p>Tap <strong>Save</strong> to keep your changes. If the customer changed the machine in their app, the page says so: check it, then <strong>Mark Checked</strong>, or save a change, to clear the tag. A machine at another store opens read-only.</p>
+<h3>Customer app logins</h3>
+<p>A customer can have their own logins to see their equipment, reports, and subscriptions in the app, and to add and update their machines.</p>
+<ol><li>Under the customer, in <strong>App logins</strong>, tap <strong>+ Add Login</strong>.</li><li>Enter the <strong>Name of the person signing in</strong> and <strong>Their email</strong>, then <strong>Add Login</strong>.</li><li>A temporary password appears once. Tap <strong>Copy</strong> and give it to them with these steps: install Field Ready, sign in with that email and password, then choose their own password. It isn't shown again after <strong>Done</strong>.</li></ol>
+<p>Each login can be turned off with <strong>Access off</strong> (they can't see anything until it's back on) or given a new temporary password with <strong>Reset Password</strong>. Owners, and admins at the customer's store, manage customer logins.</p>
+</section>
+<section class="card" id="people-stores">
+<h2>People &amp; stores</h2>
+<p>This page decides who can sign in, with what role, and at which store. Owners manage everyone and the stores; admins add and manage the employees at their own store.</p>
+<div class="table-wrap"><table><thead><tr><th>Role</th><th>Can do</th></tr></thead><tbody><tr><td>Owner</td><td>Everything, at every store</td></tr><tr><td>Admin</td><td>Their store, its people, and How to Check steps on checklists</td></tr><tr><td>Employee</td><td>Inspections at their store</td></tr></tbody></table></div>
+<h3>Adding a person</h3>
+<ol><li>Tap <strong>Add Person</strong>.</li><li>Enter their name and email, choose a <strong>Role</strong>, and choose their <strong>Store</strong> (owners can have <strong>Every store</strong>).</li><li>Save. Their login is created with a temporary password, shown once.</li><li>Tap <strong>Copy</strong> and give it to them. They sign in to the Field Ready app with their email and that password, then choose their own. It isn't shown again after <strong>Done</strong>.</li></ol>
+<h3>Managing people</h3>
+<p>Use <strong>Show</strong> to list everyone or one store. Tap <strong>Edit</strong> on a person to change their name, role, or store, or to turn off <strong>Can sign in to Field Ready</strong>. Turning access off stops them signing in and syncing; their inspections stay. <strong>Reset Password</strong> makes a new temporary password and stops the old one working.</p>
+<p>You can't turn off your own access, and the only owner always stays an owner with access: make someone else an owner first. <strong>Waiting for a login</strong> lists invitations that never became logins; cancel them and add the person again.</p>
+<h3>Stores</h3>
+<p><strong>Add a store</strong> by name. Turning a store's <strong>In use</strong> off removes it from the app's store pickers; its machines, people, and history stay.</p>
+<h3>Contacts for customers</h3>
+<p>Each store's contacts are the people its customers see under <strong>Who to contact</strong> on their app's Home screen. Add a name, phone, and email for each role: PTx Product Specialist, Sales Representative, Customer Service Representative, and Service. Owners edit every store's contacts; admins edit their own store's.</p>
+<h3>Account deletion requests</h3>
+<p>When someone taps <strong>Delete Account</strong> in the app, owners see them here under <strong>Asked to delete their login</strong>. <strong>Delete Login</strong> removes the login for good; inspections they did and their machines stay as service records. <strong>Decline</strong> keeps the login; let them know why. Apple requires that people can ask for this, so answer requests promptly.</p>
+</section>
+<section class="card" id="inspection-checklists">
+<h2>Inspection checklists</h2>
+<p>This page holds the checklists the app inspects from. Phones always use each checklist's newest published version; changes are made in a draft and reach phones only when it's published.</p>
+<h3>The four kinds</h3>
+<p>The tabs across the top are the four kinds of inspection. Employees see only <strong>Custom</strong>.</p>
+<div class="table-wrap"><table><thead><tr><th>Kind</th><th>What it covers</th><th>Who edits</th></tr></thead><tbody><tr><td>Guidance</td><td>Display, receiver, steering, and correction, for every machine that can have guidance</td><td>Owners; admins change How to Check steps</td></tr><tr><td>Planter</td><td>Precision Planting technology, for planters</td><td>Owners; admins change How to Check steps</td></tr><tr><td>Machine</td><td>The condition of the machine itself; each names the equipment types it's for</td><td>Owners; admins change How to Check steps</td></tr><tr><td>Custom</td><td>Anyone's own checklists, private to their maker</td><td>The person who made it</td></tr></tbody></table></div>
+<p>Each tab lists its checklists with their published version and date, and any draft in progress. <strong>New Checklist</strong> starts one. <strong>Copy</strong> starts a new checklist from an existing one; when you can't edit the original, the copy becomes your own Custom checklist. <strong>Show retired</strong> lists retired checklists, and <strong>Bring Back</strong> returns one.</p>
+<h3>Editing a checklist</h3>
+<ol><li>Open a checklist. You're looking at the live version, which never changes.</li><li>Tap <strong>Start Editing</strong> to make a draft of the next version. Phones keep using the live one meanwhile.</li><li>Make your changes (below), then tap <strong>Save Draft</strong>. You can come back to a saved draft later, or <strong>Discard Draft</strong>.</li><li>Fix anything listed under <strong>Fix before publishing</strong>.</li><li>Tap <strong>Publish</strong> (owners; for Custom, the maker). Phones pick it up at their next sync.</li></ol>
+<p>Admins can change the How to Check steps on a draft; an owner publishes it.</p>
+<h3>Sections and checks</h3>
+<p>A checklist is sections of checks. <strong>+ Add section</strong> adds one with a title and summary; <strong>+ Add check</strong> adds a check to it. Each check has:</p>
+<div class="table-wrap"><table><thead><tr><th>Part</th><th>What it's for</th></tr></thead><tbody><tr><td>Title</td><td>The check's name in the app and on the report</td></tr><tr><td>Key</td><td>A fixed identifier. It never changes, so answers on draft inspections carry over to new versions</td></tr><tr><td>Why it matters</td><td>One or two sentences on what the check protects against</td></tr><tr><td>How to Check</td><td>Numbered steps; <strong>+ Add step</strong> adds one, ✕ removes it. Keep them general, and cite the manual for system-specific detail</td></tr><tr><td>What good looks like</td><td>The standard the technician judges against</td></tr><tr><td>Safety note</td><td>Optional; shown as a warning at the top of the check</td></tr><tr><td>Machine condition</td><td>Key off, Key on, Engine running and parked, or Machine moving</td></tr><tr><td>Photo</td><td>No photo needed, Photo required, or Photo required if it fails</td></tr><tr><td>Required</td><td>Must be recorded before the inspection is complete. Optional checks never hold up readiness</td></tr><tr><td>Correction subscriptions</td><td>Shows the machine's subscriptions inside the check</td></tr><tr><td>Fields to record</td><td>Values to write down, each with a label and hint. <strong>Fill in from the machine</strong> starts it from the machine's technology; <strong>Required</strong> makes it needed; <strong>Not needed when it passes</strong> relaxes that for passing checks</td></tr></tbody></table></div>
+<h3>Which machines a check applies to</h3>
+<p><strong>Applies to</strong> limits a check to some machines. Leave a group empty to include every machine; a check appears only on machines that match every group you fill in.</p>
+<ul><li>Guidance systems, correction types, and equipment types.</li><li>Features or Precision Planting products: the check appears when any one chosen is marked Installed.</li><li>Answers to the machine questions, such as tracks or a front loader. An unanswered question never removes a check.</li><li><strong>Only machines with auto-steer</strong>: skipped only when the machine's steering says it has none.</li></ul>
+<h3>What publishing does to inspections</h3>
+<p>Draft inspections move to the new version the next time they're opened. New checks appear, wording updates, and removed checks go, including any answer recorded for them. Finalized inspections always keep the version they were signed with.</p>
+<p><strong>Retire</strong> stops phones offering a checklist for new inspections at their next sync. Inspections already started or finished with it keep it.</p>
+</section>
+<section class="card" id="machine-options">
+<h2>Machine options</h2>
+<p>Machine options are the choices technicians pick from when they describe a machine, and some of their settings decide which checks an inspection includes. Only owners can change them; admins can look.</p>
+<h3>Working with a list</h3>
+<ol><li>Choose a list on the left.</li><li>Rename an option by editing its <strong>Name</strong>. What the app stores never changes, so renaming is always safe.</li><li>Turn <strong>Offered in the app</strong> off to hide an option from new choices. Records that already use it keep it and still show it. A few options the app relies on (such as Unknown and Other) can't be hidden.</li><li>Use the arrows to change the order the app lists them in.</li><li><strong>Add an option</strong> with a name and <strong>Add</strong>. A new option can be removed until it's saved; after that, hide it instead.</li><li>Fix anything under <strong>Fix before saving</strong>, then <strong>Save Changes</strong> (or <strong>Discard Changes</strong>).</li></ol>
+<p>For lists with <strong>Used on</strong> settings, <strong>Show options used on</strong> filters the list to one equipment type.</p>
+<h3>The lists and their settings</h3>
+<div class="table-wrap"><table><thead><tr><th>List</th><th>What it holds</th><th>Settings</th></tr></thead><tbody><tr><td>Equipment types</td><td>The kinds of machine</td><td>Icon; <strong>Can have guidance</strong> (guidance questions and Guidance inspections); <strong>Precision Planting technology</strong> (planter products and Planter inspections)</td></tr><tr><td>Machine questions</td><td>Questions asked when a machine is added or edited</td><td><strong>Used on</strong>: the equipment types that ask it</td></tr><tr><td>Answers</td><td>Each question's answers</td><td>Listed under their question</td></tr><tr><td>Guidance systems</td><td>The first technology question, such as PTx, John Deere, or Raven</td><td>Description shown under the name; <strong>Factory-integrated</strong>: software and steering are built in</td></tr><tr><td>Guidance software</td><td>Steering products on aftermarket systems</td><td><strong>Used with</strong>: the guidance systems it's offered for (none: every system)</td></tr><tr><td>Steering</td><td>How the machine steers</td><td><strong>Steers automatically</strong>: Yes (steering checks apply), No (skip them), or Not known (keep them)</td></tr><tr><td>Correction types</td><td>Where the GNSS correction comes from</td><td><strong>Normally needs a paid subscription</strong>: flags machines with none recorded</td></tr><tr><td>Correction services</td><td>The services offered for each correction type</td><td>Provider, heading, accuracy (only as a manual states it), note, and source</td></tr><tr><td>Receiver correction levels</td><td>What a GNSS receiver is unlocked for</td><td>None</td></tr><tr><td>Component types</td><td>The parts recorded on a machine, in order</td><td><strong>Used on</strong>, icon, <strong>Has a correction level</strong></td></tr><tr><td>Optional features</td><td>Features such as section control or Precision Planting products</td><td><strong>Used on</strong>; description shown under the name</td></tr><tr><td>Inspection types</td><td>Chosen when an inspection starts; printed on the report</td><td>None</td></tr><tr><td>Reasons not tested</td><td>Why a check wasn't done</td><td><strong>The technician must describe the reason</strong></td></tr></tbody></table></div>
+<p>A new option starts with its settings off or not known until you set them. Give a new feature or component type at least one equipment type under <strong>Used on</strong>, or it won't be offered anywhere.</p>
+</section>
+<section class="card" id="how-changes-reach-the-phones">
+<h2>How changes reach the phones</h2>
+<p>The website and the app share one set of records on the server. A change you save here reaches each phone at its next sync, which runs every 5 minutes while the app is open, when it's opened, a few seconds after the technician saves something, and from <strong>Sync Now</strong> in the app's Settings.</p>
+<div class="table-wrap"><table><thead><tr><th>You change on the website</th><th>What phones do</th></tr></thead><tbody><tr><td>A customer, machine, technology, or subscription</td><td>Show it after their next sync</td></tr><tr><td>A machine option or its settings</td><td>Offer the new choices after their next sync</td></tr><tr><td>A published checklist</td><td>Use it for new inspections; draft inspections move to it when they're next opened</td></tr><tr><td>A retired checklist</td><td>Stop offering it for new inspections; inspections already using it keep it</td></tr><tr><td>A store's contacts</td><td>Update the customers' <strong>Who to contact</strong></td></tr><tr><td>A person's access turned off</td><td>They can't sign in or sync until it's back on</td></tr></tbody></table></div>
+<p>It works the other way too. Customers and machines added or changed in the app appear here after that phone syncs, and each machine shows how many finalized inspections it has. The inspections themselves, with their photos and reports, are read in the app. A phone without a signal keeps everything safe and syncs when it's back online. A machine a customer changes in their app shows <strong>Changed by the customer</strong> here and in the app until someone checks it.</p>
+</section>
+<section class="card" id="troubleshooting-and-common-questions">
+<h2>Troubleshooting and common questions</h2>
+<div class="table-wrap"><table><thead><tr><th>Problem</th><th>What to do</th></tr></thead><tbody><tr><td>"No website access"</td><td>Your login has no staff role, or it's a customer login. Customers use the app</td></tr><tr><td>A page is missing from the top bar</td><td>Pages follow your role (see <em>Signing in</em>). Employees see Customers &amp; machines and their Custom checklists</td></tr><tr><td>A change isn't showing on a phone</td><td>The phone needs to sync: open the app, or tap <strong>Sync Now</strong> in its Settings</td></tr><tr><td>A checklist edit isn't on phones</td><td>Drafts never reach phones. Publish it (an owner, or the maker of a Custom checklist)</td></tr><tr><td><strong>Publish</strong> is greyed out or refused</td><td>Fix everything under <strong>Fix before publishing</strong> first</td></tr><tr><td>Options can't be changed</td><td>Only owners change machine options; admins can look</td></tr><tr><td>An option should go away</td><td>Turn <strong>Offered in the app</strong> off. Records that use it keep it</td></tr><tr><td>A machine can't be deleted</td><td>It has a finalized inspection, which is a permanent record. Archive it instead</td></tr><tr><td>Someone forgot their password</td><td><strong>Reset Password</strong> on People &amp; stores (staff) or under the customer's <strong>App logins</strong>. Give them the new temporary password</td></tr><tr><td>A temporary password was closed before it was copied</td><td>Use <strong>Reset Password</strong> to make another</td></tr><tr><td>Someone left the company</td><td>Turn off their access on People &amp; stores. Their inspections stay</td></tr><tr><td>A machine shows "Changed by the customer"</td><td>Open it, check its details and technology, then <strong>Mark Checked</strong></td></tr><tr><td>You see "You have unsaved changes"</td><td>Save or discard before leaving; the website doesn't save as you type</td></tr></tbody></table></div>
+<p>For help with the website, email Prime Theory Labs at <a href="mailto:andrew@primetheorylabs.com">andrew@primetheorylabs.com</a>.</p>
+</section>
+    <p class="guide-back"><a href="#top-of-page">↑ Back to the top</a> · <a href="./">Field Ready Admin</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Field Ready Field Guide</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+  <!-- Made by Tools/make_guide_pages.py in the app's repository from Guides/field-guide.md. Edit that, not this. -->
+  <main class="page legal guide" id="top-of-page">
+    <p class="guide-back"><a href="support.html">← Help and Support</a></p>
+    <div class="hero">
+      <p class="eyebrow">Field Ready</p>
+      <h1>Field Ready Field Guide</h1>
+      <p>Field Ready walks a technician through a preseason inspection of a machine and its precision technology on an iPhone or iPad, then turns it into a signed PDF report for the customer. This guide covers every screen of the app for technicians, store admins, owners, and customer logins. The staff website has its own guide.</p>
+      <p class="guide-updated">Updated November 1, 2026</p>
+    </div>
+    <nav class="card guide-toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ol><li><a href="#at-a-glance">At a glance</a></li><li><a href="#getting-started">Getting started</a></li><li><a href="#the-home-screen">The Home screen</a></li><li><a href="#customers-and-machines">Customers and machines</a></li><li><a href="#starting-an-inspection">Starting an inspection</a></li><li><a href="#recording-checks">Recording checks</a></li><li><a href="#readiness">Readiness</a></li><li><a href="#finalizing-and-the-report">Finalizing and the report</a></li><li><a href="#drafts">Drafts</a></li><li><a href="#subscriptions">Subscriptions</a></li><li><a href="#working-offline-and-syncing">Working offline and syncing</a></li><li><a href="#settings">Settings</a></li><li><a href="#for-customers">For customers</a></li><li><a href="#troubleshooting-and-common-questions">Troubleshooting and common questions</a></li></ol>
+    </nav>
+<section class="card" id="at-a-glance">
+<h2>At a glance</h2>
+<figure class="diagram">
+<svg viewBox="0 0 760 292" role="img" aria-label="Every inspection ends as a signed report the customer can see" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="lifecycle-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="dg-arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="dg-title" x="24" y="34">Every inspection ends as a signed report the customer can see</text>
+<path class="dg-line" d="M180 104H212" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M368 104H400" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M556 104H588" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M666 132V170H102V208" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M180 236H212" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M368 236H400" marker-end="url(#lifecycle-arrow)"/>
+<path class="dg-line" d="M556 236H588" marker-end="url(#lifecycle-arrow)"/>
+<rect class="dg-box" x="24" y="76" width="156" height="56" rx="8"/><text class="dg-name" x="102" y="100">Choose machine</text><text class="dg-note" x="102" y="116">or add a new one</text>
+<rect class="dg-box" x="212" y="76" width="156" height="56" rx="8"/><text class="dg-name" x="290" y="100">Choose inspection</text><text class="dg-note" x="290" y="116">one of four kinds</text>
+<rect class="dg-box" x="400" y="76" width="156" height="56" rx="8"/><text class="dg-name" x="478" y="100">Build checklist</text><text class="dg-note" x="478" y="116">checks that apply</text>
+<rect class="dg-box" x="588" y="76" width="156" height="56" rx="8"/><text class="dg-name" x="666" y="100">Record checks</text><text class="dg-note" x="666" y="116">saved as a draft</text>
+<rect class="dg-box" x="24" y="208" width="156" height="56" rx="8"/><text class="dg-name" x="102" y="232">Read the preview</text><text class="dg-note" x="102" y="248">the report, as DRAFT</text>
+<rect class="dg-box" x="212" y="208" width="156" height="56" rx="8"/><text class="dg-name" x="290" y="232">Finalize and sign</text><text class="dg-note" x="290" y="248">fix anything listed</text>
+<rect class="dg-box" x="400" y="208" width="156" height="56" rx="8"/><text class="dg-name" x="478" y="232">Report saved</text><text class="dg-note" x="478" y="248">locked for good</text>
+<rect class="dg-accent" x="588" y="208" width="156" height="56" rx="8"/><text class="dg-name" x="666" y="232">Customer sees it</text><text class="dg-note" x="666" y="248">after the next sync</text>
+<text class="dg-note" x="384" y="162">tap Review and Finalize</text>
+</svg>
+</figure>
+<p>Until it's finalized, a draft syncs to everyone at its store, can be picked up on another phone, and can be deleted by an admin or owner. Once finalized, it and its report are permanent.</p>
+</section>
+<section class="card" id="getting-started">
+<h2>Getting started</h2>
+<p>Agri-Service creates every login; there is no sign-up in the app. Staff get their email and a temporary password from a Field Ready owner, and customers get theirs from their store.</p>
+<ol><li>Open Field Ready and enter your email and temporary password.</li><li>Choose your own password when the app asks: at least 8 characters, typed twice. Nothing else opens until you do.</li><li>Field Ready opens on <strong>Home</strong>. It remembers you, so after the first sign-in it opens even with no signal.</li></ol>
+<p>If you see <strong>No access yet</strong>, your email can sign in but hasn't been given access. Ask a Field Ready owner to invite that email, then sign in again. If you forget your password, an owner or admin can give you a new temporary one from the staff website.</p>
+<h3>What each role sees and can do</h3>
+<div class="table-wrap"><table><thead><tr><th>Role</th><th>Sees</th><th>Can do</th></tr></thead><tbody><tr><td>Employee (technician)</td><td>Every customer, machine, and inspection at their store</td><td>Add and edit customers and machines, run and finalize inspections, record subscriptions, delete their own Custom drafts</td></tr><tr><td>Admin</td><td>The same, for their store</td><td>Also archive and delete customers and machines, and delete drafts at their store</td></tr><tr><td>Owner</td><td>Every store</td><td>Everything, at every store</td></tr><tr><td>Customer login</td><td>Their own farm's machines, finished inspections and reports, subscriptions, and store contacts</td><td>Add and update their own machines, technology, and subscriptions</td></tr></tbody></table></div>
+<p>Staff see five tabs along the bottom: <strong>Home</strong>, <strong>Inspections</strong>, <strong>Equipment</strong>, <strong>Subscriptions</strong>, and <strong>Settings</strong>. Customers see the same five, set up for their farm (see <em>For customers</em>).</p>
+<p>A new install starts with sample customers, machines, and inspections so you can try every screen. They never sync, and you can remove them in Settings.</p>
+</section>
+<section class="card" id="the-home-screen">
+<h2>The Home screen</h2>
+<p>Home is where a technician starts the day: new inspections, drafts to pick up, and what needs attention, top to bottom.</p>
+<ul><li><strong>Start New Inspection</strong> opens the steps in <em>Starting an inspection</em>.</li><li><strong>Continue</strong> lists your draft inspections. Each card shows the machine, the checklist, the customer, the season, a progress bar ("6 of 25 checks recorded"), and how many failed checks are open. Tap a card to carry on where you left off.</li><li><strong>Needs attention</strong> has two counts:<ul><li><strong>Inspections with open findings</strong>: inspections with at least one failed check. It shows a dash for a moment while it counts.</li><li><strong>Subscriptions expiring or expired</strong>: correction subscriptions that have expired or expire within 90 days. The first three are listed under the counts; tap one to open its machine.</li></ul></li><li><strong>Recent inspections</strong> shows your five newest inspections, drafts and finished. <strong>Find equipment</strong> jumps to the Equipment tab.</li></ul>
+<p>A banner near the top says when sample data is loaded. Remove it in <strong>Settings › Sample data</strong> once you're working with real customers.</p>
+</section>
+<section class="card" id="customers-and-machines">
+<h2>Customers and machines</h2>
+<p>Every inspection is of one machine, and every machine belongs to a customer and a store. The <strong>Equipment</strong> tab lists customers with their machines underneath; search by customer, machine, or serial number.</p>
+<h3>Add a machine</h3>
+<ol><li>In <strong>Equipment</strong>, tap <strong>Add Machine</strong> (or <strong>Add a new machine</strong> while starting an inspection).</li><li><strong>Farm</strong>: pick the customer, or choose <strong>New customer</strong> and enter the name, plus phone and email if you have them.</li><li><strong>Machine</strong>: choose the <strong>Equipment type</strong> first. It decides the questions, the technology questions, and which inspections fit. Then fill in the manufacturer, model, model year, serial number, and where it's kept (yard, shed).</li><li><strong>About this machine</strong>: answer the type's questions, such as a tractor's drive. Checklists include or skip checks from these answers, so leave any you can't confirm as <strong>Not answered</strong>; every check then stays in.</li><li><strong>Store</strong>: choose the store the machine belongs to. Everyone at that store can see it and its inspection history.</li><li>Tap <strong>Save</strong>.</li></ol>
+<p>Leave anything you can't confirm blank. It shows as Unknown, which is always better than a guess.</p>
+<h3>Equipment types</h3>
+<p>The built-in types are Tractor, Planter, Combine, Self-propelled sprayer, Floater / applicator, Windrower, Forage harvester, Grain drill, Baler, Mower conditioner, Rake / tedder, Tillage, and Telehandler / loader. Owners can add more on the website. Types that can carry guidance get the technology questions and <strong>Guidance</strong> inspections; planters get Precision Planting products and <strong>Planter</strong> inspections.</p>
+<h3>A machine's page</h3>
+<p>Tap a machine to open its page. From top to bottom:</p>
+<ul><li><strong>Changed by the customer</strong>: shown when the customer added or changed the machine in their own app. Check its details and technology, then tap <strong>Mark as Checked</strong>.</li><li><strong>Start Inspection</strong> for this machine.</li><li>The customer's contact details, the machine's details, and its technology and components.</li><li><strong>Correction subscriptions</strong>, with <strong>Add subscription</strong>.</li><li><strong>Inspection history</strong>: every inspection of the machine, newest first.</li><li><strong>Edit</strong> changes the details; the <strong>More</strong> menu has <strong>Archive Machine</strong> and <strong>Delete Machine</strong> for admins and owners.</li></ul>
+<h3>Technology</h3>
+<p>On a machine's page, open the technology to describe its precision setup. Choose <strong>Unknown</strong> rather than guessing: unknown answers keep the related checks in the inspection.</p>
+<div class="table-wrap"><table><thead><tr><th>Setting</th><th>What to choose</th></tr></thead><tbody><tr><td>Guidance system</td><td>PTx, Fendt Guide, MF Guide, John Deere, Raven, Ag Leader, or Other</td></tr><tr><td>Guidance software</td><td>The steering product, from those for the chosen system (for example EZ-Pilot Pro, GREEN FIT, RS1, SteerCommand Z2). Factory systems (Fendt Guide, MF Guide) have it built in</td></tr><tr><td>Steering</td><td>Manual guidance only; Assisted steering (wheel or motor kit); Full Hydraulic Install; Full CAN Install. Factory systems are set to factory-integrated steering</td></tr><tr><td>Correction source</td><td>No paid correction; Satellite-delivered; Network RTK (cellular); Local RTK base (radio); Other</td></tr></tbody></table></div>
+<p>Changing the guidance system clears guidance software that belongs to another system.</p>
+<p><strong>Components</strong>: tap <strong>Add component</strong> for each display, GNSS receiver, antenna, steering kit, steering controller, and modem or radio. Record the model, serial number, and software or firmware version, plus the correction level on a receiver (Basic, Intermediate, High). <strong>How sure are you?</strong> marks whether you verified it on the machine.</p>
+<p><strong>Optional features</strong>: mark each as Installed, Not installed, or Unknown: implement guidance, automatic end-of-row turns, section control, ISOBUS implement control, rate control, and wireless data transfer. Checks for a feature appear only when it's marked Installed.</p>
+<h3>Customers</h3>
+<p>Tap a customer's name in Equipment, or <strong>Add Customer</strong>, to edit the name, phone, email, and home store. A customer's machines can belong to other stores.</p>
+<h3>Archive or delete</h3>
+<p>Admins and owners can archive or delete. Archiving hides a customer or machine from lists and keeps all its history; <strong>Show Archived</strong> in Equipment brings them back into view, and <strong>Unarchive</strong> restores them. A machine or customer with a finalized inspection can't be deleted, because finalized inspections are permanent records; archive it instead. Deleting removes the record, its technology, subscriptions, and draft inspections on every device, and can't be undone.</p>
+</section>
+<section class="card" id="starting-an-inspection">
+<h2>Starting an inspection</h2>
+<p>An inspection takes three choices: the machine, the kind of inspection, and the visit's details. The app then builds a checklist with only the checks that apply to that machine.</p>
+<ol><li>Tap <strong>Start New Inspection</strong> on Home, <strong>New Inspection</strong> in the Inspections tab, or <strong>Start Inspection</strong> on a machine's page (which skips step 2).</li><li><strong>Choose Machine</strong>: pick the customer's machine, or <strong>Add a new machine</strong> if it isn't there yet.</li><li><strong>Choose Inspection</strong>: pick the kind. Each shows how many checks it has for this machine.</li><li>Fill in the details: <strong>Technician</strong> (filled in for you), <strong>Season</strong>, <strong>Type</strong> (Preseason, Follow-up, or Other), and optionally the <strong>Work order</strong> and <strong>Location</strong>.</li><li>Look over the machine summary at the bottom. It shows the technology or the answers the checklist is built from. If something is wrong, fix it now with <strong>Review machine details</strong>; you can also change the technology later.</li><li>Tap <strong>Build Checklist</strong> to start. The draft is saved right away.</li></ol>
+<div class="table-wrap"><table><thead><tr><th>Kind</th><th>What it inspects</th><th>Offered for</th></tr></thead><tbody><tr><td>Guidance</td><td>Display, receiver, steering, and correction</td><td>Every equipment type that can carry guidance</td></tr><tr><td>Planter</td><td>Precision Planting technology</td><td>Planters</td></tr><tr><td>Machine</td><td>Condition of the machine itself</td><td>The equipment types each checklist names (owners write these on the website)</td></tr><tr><td>Custom</td><td>Your own checklists, made on the website</td><td>Whoever made the checklist</td></tr></tbody></table></div>
+<p>Only checklists published on the website are offered, so a new or changed checklist reaches phones at their next sync. A Custom inspection stays private to its maker until it's finalized; then the store's admins, owners, and the customer can see it.</p>
+</section>
+<section class="card" id="recording-checks">
+<h2>Recording checks</h2>
+<p>Each check is one screen: read how to do it, do it on the machine, then record what you found. Everything saves on the phone as you go, so you can stop and pick up later.</p>
+<h3>The inspection overview</h3>
+<p>Opening an inspection shows its overview: progress ("6 of 25 checks recorded"), the overall readiness so far, and the checks grouped by section with each one's result. It also lists <strong>Subscription concerns</strong> and checks that <strong>Need more information</strong>. Tap <strong>Next: &lt;check&gt;</strong> to go to the next unrecorded check, or tap any check to jump to it. <strong>Findings</strong> lists failed checks and checks that passed with recommendations; <strong>Edit Technology</strong> fixes the machine's setup; <strong>View Report</strong> shows a draft of the PDF.</p>
+<h3>One check</h3>
+<p>A check screen shows, top to bottom:</p>
+<ul><li><strong>Check 3 of 25</strong>, with <strong>Previous</strong> and <strong>Next</strong> (or <strong>Done</strong> on the last).</li><li>A safety warning, when the check has one. Read it before you start.</li><li><strong>Why it matters</strong>: what the check protects against.</li><li>The machine state it needs: key off, key on, engine running and parked, or machine moving.</li><li><strong>How to check</strong>: numbered steps. They're general so they fit any system, with short notes for specific systems where they differ. Always follow the manufacturer's procedure for calibrations and steering tests.</li><li><strong>What good looks like</strong>: the standard to judge against.</li><li><strong>Record</strong>: values to write down, such as a firmware version. Many are filled in from the machine's technology so you only confirm them. If you correct one, the machine's record is updated too. Enter Unknown if you can't read a value.</li><li><strong>Result</strong>, <strong>Notes</strong>, and <strong>Photos</strong>.</li></ul>
+<h3>The five results</h3>
+<div class="table-wrap"><table><thead><tr><th>Result</th><th>Use it when</th><th>You must also record</th></tr></thead><tbody><tr><td>Pass</td><td>The test was done and met its standard</td><td>Nothing more</td></tr><tr><td>Pass With Recommendations</td><td>It passed, but you recommend something to the customer</td><td>The recommendation</td></tr><tr><td>Fail</td><td>The test was done and did not meet its standard</td><td>Severity (Critical, Major, Minor, Advisory), what failed in Notes, and the recommended repair. These are reminders: you can finalize without them, but the report is better with them</td></tr><tr><td>Not Tested</td><td>You didn't do the test</td><td>The reason, such as machine unavailable, conditions unsuitable, customer declined, or deferred. <strong>Other reason</strong> needs a description</td></tr><tr><td>Not Applicable</td><td>The check doesn't apply to this machine's setup</td><td>Optionally, why</td></tr></tbody></table></div>
+<p>Never mark a check you didn't do as Pass or Fail. Not Tested keeps the inspection honest, and the report lists every untested check with its reason.</p>
+<h3>Photos</h3>
+<p>Tap <strong>Take Photo</strong> to use the camera, or <strong>Library</strong> to add up to six photos at once. Some checks need a photo, or need one only when they fail; the check says so. Location data is removed from photos when they're saved. Tap a photo to see it full size or delete it.</p>
+<h3>Subscriptions inside a check</h3>
+<p>The correction checks show <strong>Subscriptions on this machine</strong> right on the check. Confirm each one's service and expiration, tap <strong>Mark Checked Today</strong> once you've verified it, or <strong>Add Subscription</strong> if one is missing. See <em>Subscriptions</em> for what to record.</p>
+<h3>What still needs information</h3>
+<p>A check that's missing something shows it under the result in plain words, such as "Choose why it wasn't tested" or "Write what you recommend." The overview's <strong>Needs more information</strong> list gathers them all, so nothing is missed before finalizing.</p>
+</section>
+<section class="card" id="readiness">
+<h2>Readiness</h2>
+<p>Every inspection gets one overall result, decided by fixed rules in this order, never by a score or percentage. The first rule that matches wins.</p>
+<ol><li><strong>Not Ready</strong>: at least one check failed.</li><li><strong>Incomplete</strong>: nothing failed, but a required check isn't recorded yet or was Not Tested.</li><li><strong>Ready with Recommendations</strong>: nothing failed or is missing, and at least one check passed with recommendations.</li><li><strong>Ready</strong>: every required check passed and nothing failed.</li></ol>
+<p>A failure's severity doesn't change the result: one minor failure still makes the machine Not Ready, and the report shows the severity beside it. Optional checks left blank never hold up readiness.</p>
+<p>The overview and the report explain the result in a line, such as "Failed: Steering calibration status" or "2 required checks still to record." Subscription concerns, like an expired correction service, appear next to it but don't change it on their own.</p>
+</section>
+<section class="card" id="finalizing-and-the-report">
+<h2>Finalizing and the report</h2>
+<p>Finalizing signs the inspection, saves its PDF report, and locks it for good. Check everything first: a finalized inspection can't be edited.</p>
+<ol><li>On the overview, tap <strong>Review and Finalize</strong>. The <strong>Report Preview</strong> opens, marked DRAFT, so you can read exactly what the customer will get.</li><li>Tap <strong>Finalize and Sign</strong>.</li><li>Fix anything under <strong>Fix before finalizing</strong>; the button stays off until the list is empty. Items under <strong>Failure details not filled in</strong> are reminders only.</li><li>Check the <strong>Overall readiness</strong>.</li><li>Sign under <strong>Technician signature</strong> (tap <strong>Clear</strong> to start over).</li><li>Optionally, the customer types their name and signs under <strong>Customer acknowledgment</strong>.</li><li>Add <strong>Additional notes</strong> if you like; they're printed on the report.</li><li>Tap <strong>Finalize Inspection</strong>, then <strong>Finalize and Save Report</strong> to confirm.</li></ol>
+<p>The report is saved as Version 1 with the time it was saved, and the inspection moves to <strong>Completed</strong>. Tap <strong>Share or Print</strong> to email it, AirDrop it, print it, or save it to Files. It also syncs, so the customer sees it in their app and the office has it.</p>
+<h3>What the report contains</h3>
+<ul><li>The cover: your company name or logo (see <em>Settings</em>), the customer, the machine, its serial number, and the report ID.</li><li>The overall readiness with its one-line reason, and the count of each result.</li><li>Findings: each failure with its severity, notes, and recommended repair, and each recommendation.</li><li>Checks not tested, each with its reason.</li><li>For Guidance and Planter inspections, the machine's technology, components, features, and subscriptions. Machine and Custom reports print the machine's details instead.</li><li>Every check's result, section by section, with recorded values and notes.</li><li>Numbered photos, referred to from the checks they belong to.</li><li>The sign-off: technician, date completed, signatures, customer acknowledgment, and notes.</li></ul>
+<p>A finalized report is never rewritten. While the checklists are still being reviewed, the report says the guidance is a draft pending review.</p>
+</section>
+<section class="card" id="drafts">
+<h2>Drafts</h2>
+<p>An inspection is a draft until it's finalized. Drafts sync like everything else, so another technician at the same store can pick one up on their own phone.</p>
+<ul><li><strong>Who sees a draft</strong>: everyone at the machine's store, plus owners. A Custom draft is the exception: only the person who made it sees it.</li><li><strong>Finding drafts</strong>: <strong>Continue</strong> on Home, or the <strong>Inspections</strong> tab with <strong>Show</strong> set to <strong>Drafts</strong>. The list shows each draft's progress, such as "Draft 6/25".</li><li><strong>Two phones on one draft</strong>: work on a draft on one phone at a time. If two people change the same check before syncing, the phone that syncs last keeps its version.</li><li><strong>When a checklist changes</strong>: if a newer version of a draft's checklist is published, the draft moves to it the next time it's opened. New checks appear, wording and requirements update, and checks removed from the checklist go, even if they were answered. Finalized inspections always keep the checklist they were signed with.</li></ul>
+<h3>Deleting a draft</h3>
+<p>Admins and owners can delete drafts at their store, and the maker of a Custom draft can delete it. Open the draft and choose <strong>More › Delete Draft</strong>, or swipe it in the Inspections list. Its results and photos are deleted on every device, and it can't be undone. Finalized inspections can never be deleted.</p>
+</section>
+<section class="card" id="subscriptions">
+<h2>Subscriptions</h2>
+<p>A lapsed correction subscription stops a working system in the field, so Field Ready tracks each machine's subscriptions and flags them before they run out. The <strong>Subscriptions</strong> tab groups every subscription at your store:</p>
+<div class="table-wrap"><table><thead><tr><th>Group</th><th>Means</th></tr></thead><tbody><tr><td>Expired or expiring within 30 days</td><td>Act now: call the customer about renewing</td></tr><tr><td>Expiring within 90 days</td><td>Renew before the season</td></tr><tr><td>Current</td><td>Good for more than 90 days</td></tr><tr><td>No expiration date</td><td>Find out when it ends</td></tr><tr><td>Missing subscriptions</td><td>The machine uses a paid correction (satellite or network RTK) but has no subscription recorded</td></tr></tbody></table></div>
+<p>An expiration date alone doesn't prove a subscription is active. Only entries marked <strong>Verified with provider</strong> were confirmed with the provider.</p>
+<h3>Adding or editing a subscription</h3>
+<p>Open a machine and tap <strong>Add subscription</strong>, or tap an existing one.</p>
+<ol><li>Choose the <strong>Correction type</strong>.</li><li>Pick the service from the list, which is grouped by provider (for example Trimble CenterPoint RTX, John Deere SF-RTK, Raven Slingshot RTK, Ag Leader TerraStar-C PRO). Choose <strong>Custom service</strong> to type a provider and service name that aren't listed.</li><li>Enter the <strong>Account or subscription reference</strong> if the customer has one. Never enter passwords or login details.</li><li>Turn on <strong>Has an expiration date</strong> and set <strong>Expires</strong>.</li><li>Choose the <strong>Source</strong>: Customer reported, From customer account or document, Verified with provider, or Not verified.</li><li>Mark it <strong>Checked today</strong> when you've just confirmed it, and add <strong>Notes</strong> if needed. Tap <strong>Save</strong>.</li></ol>
+<p>Listed services show where their details come from, such as a manual page, and the accuracy only when a manual states it.</p>
+</section>
+<section class="card" id="working-offline-and-syncing">
+<h2>Working offline and syncing</h2>
+<p>Field Ready works fully without a signal: every tap saves on the phone first. Sync sends your changes to the server and brings in everyone else's whenever there's a connection, with nothing for you to do.</p>
+<p>Sync runs on its own:</p>
+<ul><li>right after you sign in;</li><li>a few seconds after you stop making changes;</li><li>when you open the app again, and when the connection comes back;</li><li>every 5 minutes while the app is open;</li><li>for a short while after you leave the app, if changes are waiting.</li></ul>
+<p>If a sync can't finish, it tries again on its own, waiting a little longer each time (up to 15 minutes).</p>
+<h3>Settings › Sync</h3>
+<div class="table-wrap"><table><thead><tr><th>You see</th><th>It means</th></tr></thead><tbody><tr><td>Synced 2 minutes ago</td><td>Everything is up to date as of then</td></tr><tr><td>Syncing…</td><td>A sync is running</td></tr><tr><td>Offline</td><td>No connection. Changes are safe on the phone and sync when you're back online</td></tr><tr><td>Couldn't sync</td><td>The server answered with a problem; it retries on its own</td></tr><tr><td>Waiting to sync: 3</td><td>Changes the server doesn't have yet, counted after each sync</td></tr><tr><td>2 machines need a store</td><td>Machines can't sync until they belong to a store: tap <strong>Choose a Store</strong>, pick one, then <strong>Assign</strong></td></tr><tr><td>1 item couldn't sync</td><td>The server refused something; the list says what and why</td></tr></tbody></table></div>
+<p>Tap <strong>Sync Now</strong> to sync right away. Sample data never syncs.</p>
+<h3>When two people change the same thing</h3>
+<p>If a record was changed on your phone and somewhere else before syncing, your phone's version is kept and sent. The one exception: an inspection already finalized on the server always wins, so a finalized report is never overwritten. If you delete something the server keeps, such as a machine with a finalized inspection, it's put back on your phone with a note, and you can archive it instead.</p>
+<p>Each phone downloads only what its person can see. If a phone's records belong to a different organization, sync stays off and Settings says so; contact your Field Ready owner.</p>
+</section>
+<section class="card" id="settings">
+<h2>Settings</h2>
+<p>The <strong>Settings</strong> tab holds your account, sync, report branding, and sample data.</p>
+<ul><li><strong>Account</strong>: your name, email, role, store, and organization. <strong>Change Password</strong> sets a new one. <strong>Sign Out</strong> signs you out; inspections saved on this phone stay on it, and nothing unsynced is lost.</li><li><strong>Privacy</strong>: <strong>Privacy Policy</strong> and <strong>Help and Support</strong> open on the web. <strong>Delete Account</strong> asks your Field Ready owners to delete your login. You can keep using the app until they do. Inspections you did and machines stay as the dealer's service records.</li><li><strong>Sync</strong>: status, <strong>Sync Now</strong>, and anything that needs fixing (see <em>Working offline and syncing</em>).</li><li><strong>Report Branding</strong>: the <strong>Company name</strong> printed on the cover and every page of reports, and an optional <strong>Logo</strong> shown on the cover in place of the name. A PNG with a transparent background looks best; use only a logo your company has the right to use. Branding is set per phone, so set it on each phone that finalizes reports.</li><li><strong>Sample data</strong>: <strong>Load Sample Data</strong> adds sample customers, machines, and inspections for practice or training. <strong>Remove Sample Data</strong> deletes them and never touches your own records.</li><li><strong>About Field Ready</strong>: the app version, where inspection procedures come from, and trademark notices.</li></ul>
+</section>
+<section class="card" id="for-customers">
+<h2>For customers</h2>
+<p>A customer login shows one farm's equipment, finished inspections, and subscriptions, and lets the customer keep their machine list up to date. It never shows other farms, drafts, or staff screens.</p>
+<div class="table-wrap"><table><thead><tr><th>Tab</th><th>What's there</th></tr></thead><tbody><tr><td>Home</td><td>A welcome, counts of machines, subscriptions (all current, or how many to renew), and inspections, the latest inspection with <strong>View report</strong>, and <strong>Who to contact</strong> at their store</td></tr><tr><td>Equipment</td><td>Their machines, with <strong>Add Machine</strong></td></tr><tr><td>Inspections</td><td>Every finished inspection and its PDF report</td></tr><tr><td>Subscriptions</td><td>Their correction subscriptions; expired or expiring ones are flagged with a reminder to renew before the season</td></tr><tr><td>Settings</td><td>Account, Change Password, privacy links, Delete Account, Sign Out</td></tr></tbody></table></div>
+<h3>What customers can change</h3>
+<ul><li><strong>Add Machine</strong>: the same machine form staff use, already set to their farm and store.</li><li><strong>Edit</strong> a machine's details and answers, <strong>Edit technology</strong> (guidance system, software, steering, correction, components, and features), and add or edit <strong>Subscriptions</strong>.</li><li><strong>Delete Machine</strong> when no inspection has ever been done on it.</li><li><strong>Archive Machine</strong> when it has inspections. It disappears from their list; the dealer can bring it back.</li></ul>
+<p>Every machine a customer adds or changes shows <strong>Changed by the customer</strong> to staff, in the app and on the website. Staff check it and tap <strong>Mark as Checked</strong>, or edit the machine, to clear it.</p>
+<p>The contacts under <strong>Who to contact</strong> are set by the dealer on the website, so customers always reach the right people at their store.</p>
+</section>
+<section class="card" id="troubleshooting-and-common-questions">
+<h2>Troubleshooting and common questions</h2>
+<div class="table-wrap"><table><thead><tr><th>Problem</th><th>What to do</th></tr></thead><tbody><tr><td>Can't sign in</td><td>Check the email address. Forgotten passwords are reset by an owner or admin on the website, who gives you a new temporary one</td></tr><tr><td>"No access yet" after signing in</td><td>Your email isn't invited yet. Ask a Field Ready owner to invite it, then sign in again</td></tr><tr><td>A customer or machine is missing</td><td>Tap <strong>Sync Now</strong> in Settings. You only see your own store's records; turn on <strong>Show Archived</strong> in Equipment for archived ones</td></tr><tr><td>A new checklist isn't offered</td><td>It has to be published on the website, and the phone has to sync. Guidance inspections are offered only for types that can carry guidance, and Planter only for planters</td></tr><tr><td>A check I expected isn't in the inspection</td><td>The checklist follows the machine's technology and answers. A feature must be marked Installed; Manual guidance only leaves out the steering checks. Set anything you're unsure of to Unknown and reopen the draft</td></tr><tr><td><strong>Finalize Inspection</strong> is greyed out</td><td>Fix each item under <strong>Fix before finalizing</strong> and sign. Missing failure details don't block it</td></tr><tr><td>The report shows the wrong company name</td><td>Change <strong>Settings › Report Branding</strong> on that phone. Reports already finalized keep what they were saved with</td></tr><tr><td>My changes aren't on another phone or the website</td><td>Check <strong>Settings › Sync</strong>: Offline means they're waiting on this phone. Tap <strong>Sync Now</strong> once you're connected</td></tr><tr><td>"Machines need a store"</td><td><strong>Settings › Sync › Choose a Store</strong>, pick the store, then <strong>Assign</strong></td></tr><tr><td>The camera won't open</td><td>Allow camera access in the iPhone's Settings › Field Ready, or add photos from the <strong>Library</strong></td></tr><tr><td>I deleted something by mistake</td><td>Deletions can't be undone. Finalized inspections can never be deleted, so their records are safe</td></tr></tbody></table></div>
+<p>For anything else, open <strong>Settings › Help and Support</strong>, or email Prime Theory Labs at <a href="mailto:andrew@primetheorylabs.com">andrew@primetheorylabs.com</a>. Your store can help with accounts, equipment, and inspections.</p>
+</section>
+    <p class="guide-back"><a href="#top-of-page">↑ Back to the top</a> · <a href="support.html">Help and Support</a></p>
+  </main>
+</body>
+</html>
