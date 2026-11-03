@@ -208,6 +208,18 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 .handover { border-color: var(--field-green); }
 .handover .password { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
 .handover .password code { font-size: 1.4rem; padding: 6px 12px; letter-spacing: 0.04em; }
+.handover .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.handover-message { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+
+/* ---------- organizations (platform admins) */
+
+.org-list, .org-owners { list-style: none; margin: 8px 0 0; padding: 0; }
+.org { border-top: 1px solid var(--hairline); padding: 12px 0; }
+.org:first-child { border-top: none; }
+.org-head { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
+.org > .hint { margin: 4px 0 0; }
+.org-owners li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 4px 0; }
+.org-owners .hint { margin: 0; overflow-wrap: anywhere; }
 .store { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 16px; align-items: end; border-top: 1px solid var(--hairline); padding: 6px 0 10px; }
 .store .link { margin-bottom: 6px; }
 .store-contacts { grid-column: 1 / -1; }

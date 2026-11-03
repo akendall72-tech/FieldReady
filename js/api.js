@@ -43,9 +43,24 @@ export async function signOut() {
 export async function loadProfile(userId) {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, organization_id, organizations(name), locations(name)")
+    .select("id, full_name, email, role, active, location_id, organization_id, must_change_password, organizations(name), locations(name)")
     .eq("id", userId)
     .maybeSingle());
+}
+
+/**
+ * Whether this login may set up organizations (public.platform_admins). False when the check can't
+ * be made, such as before that table exists, so signing in never depends on it.
+ */
+export async function isPlatformAdmin(userId) {
+  const { data, error } = await supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
+  return !error && Boolean(data);
+}
+
+/** Replaces a temporary password with the person's own, as the app does at a first sign-in. */
+export async function chooseOwnPassword(profileId, password) {
+  unwrap(await supabase.auth.updateUser({ password }));
+  unwrap(await supabase.from("profiles").update({ must_change_password: false }).eq("id", profileId));
 }
 
 /** Every version of every checklist this person can see (owners and admins see drafts too). */

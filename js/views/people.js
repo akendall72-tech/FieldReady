@@ -205,7 +205,7 @@ export function mountPeople(root, { profile }) {
       <div class="card warning">
         <h2>Asked to delete their login</h2>
         <p class="hint">These people asked in the Field Ready app for their account to be deleted. Delete Login removes the login for good;
-          inspections they did and their machines stay as Agri-Service records. Decline keeps it (tell them why).</p>
+          inspections they did and their machines stay as your organization's records. Decline keeps it (tell them why).</p>
         <ol class="person-list">
           ${state.deletionRequests.map((request) => `
             <li class="login">

@@ -17,11 +17,11 @@
       <p class="eyebrow">Field Ready</p>
       <h1>Field Ready Admin Website Guide</h1>
       <p>The Field Ready Admin website is where staff manage what the app works from: customers and machines, people and stores, inspection checklists, and machine options. Open it at <a href="https://akendall72-tech.github.io/FieldReady/">akendall72-tech.github.io/FieldReady</a> and sign in with your Field Ready email and password. The app has its own guide, the <a href="guide.html">Field Ready Field Guide</a>.</p>
-      <p class="guide-updated">Updated November 1, 2026</p>
+      <p class="guide-updated">Updated November 3, 2026</p>
     </div>
     <nav class="card guide-toc" aria-label="On this page">
       <h2>On this page</h2>
-      <ol><li><a href="#at-a-glance">At a glance</a></li><li><a href="#signing-in-and-what-each-role-can-open">Signing in and what each role can open</a></li><li><a href="#customers-machines">Customers &amp; machines</a></li><li><a href="#people-stores">People &amp; stores</a></li><li><a href="#inspection-checklists">Inspection checklists</a></li><li><a href="#machine-options">Machine options</a></li><li><a href="#how-changes-reach-the-phones">How changes reach the phones</a></li><li><a href="#troubleshooting-and-common-questions">Troubleshooting and common questions</a></li></ol>
+      <ol><li><a href="#at-a-glance">At a glance</a></li><li><a href="#signing-in-and-what-each-role-can-open">Signing in and what each role can open</a></li><li><a href="#customers-machines">Customers &amp; machines</a></li><li><a href="#people-stores">People &amp; stores</a></li><li><a href="#inspection-checklists">Inspection checklists</a></li><li><a href="#machine-options">Machine options</a></li><li><a href="#how-changes-reach-the-phones">How changes reach the phones</a></li><li><a href="#setting-up-a-new-organization">Setting up a new organization</a></li><li><a href="#troubleshooting-and-common-questions">Troubleshooting and common questions</a></li></ol>
     </nav>
 <section class="card" id="at-a-glance">
 <h2>At a glance</h2>
@@ -48,6 +48,7 @@
 <p>Sign in with the same email and password you use in the Field Ready app. Each role sees only the pages it needs, listed along the top.</p>
 <div class="table-wrap"><table><thead><tr><th>Page</th><th>Owner</th><th>Admin</th><th>Employee</th></tr></thead><tbody><tr><td>Customers &amp; machines</td><td>Every store</td><td>Their store's customers and machines</td><td>Their store's customers and machines</td></tr><tr><td>Inspection checklists</td><td>Every kind: edit and publish</td><td>Edit How to Check steps on a draft; make their own Custom checklists</td><td>Custom only: their own</td></tr><tr><td>Machine options</td><td>Edit every list</td><td>Look only</td><td>Not shown</td></tr><tr><td>People &amp; stores</td><td>Everyone and every store</td><td>The employees at their store, and their store's contacts</td><td>Not shown</td></tr></tbody></table></div>
 <p>Customer logins can't use the website; it tells them to use the app instead. If you see <strong>No website access</strong>, your login doesn't have a staff role. Forgot your password? Ask an owner or admin for a new temporary one.</p>
+<p>The first time you sign in with a temporary password, the website asks you to <strong>Choose a password</strong> of your own (at least 8 characters) before anything else. Use that password in the app too.</p>
 </section>
 <section class="card" id="customers-machines">
 <h2>Customers &amp; machines</h2>
@@ -117,6 +118,13 @@
 <p>The website and the app share one set of records on the server. A change you save here reaches each phone at its next sync, which runs every 5 minutes while the app is open, when it's opened, a few seconds after the technician saves something, and from <strong>Sync Now</strong> in the app's Settings.</p>
 <div class="table-wrap"><table><thead><tr><th>You change on the website</th><th>What phones do</th></tr></thead><tbody><tr><td>A customer, machine, technology, or subscription</td><td>Show it after their next sync</td></tr><tr><td>A machine option or its settings</td><td>Offer the new choices after their next sync</td></tr><tr><td>A published checklist</td><td>Use it for new inspections; draft inspections move to it when they're next opened</td></tr><tr><td>A retired checklist</td><td>Stop offering it for new inspections; inspections already using it keep it</td></tr><tr><td>A store's contacts</td><td>Update the customers' <strong>Who to contact</strong></td></tr><tr><td>A person's access turned off</td><td>They can't sign in or sync until it's back on</td></tr></tbody></table></div>
 <p>It works the other way too. Customers and machines added or changed in the app appear here after that phone syncs, and each machine shows how many finalized inspections it has. The inspections themselves, with their photos and reports, are read in the app. A phone without a signal keeps everything safe and syncs when it's back online. A machine a customer changes in their app shows <strong>Changed by the customer</strong> here and in the app until someone checks it.</p>
+</section>
+<section class="card" id="setting-up-a-new-organization">
+<h2>Setting up a new organization</h2>
+<p>This part is for Prime Theory Labs. Platform admins see an <strong>Organizations</strong> page that dealers' staff don't. It lists every organization using Field Ready with its stores, how many staff and customer logins it has, and its owners. It shows names and counts only; you can't open or change another organization's records from it.</p>
+<p>To add a dealer:</p>
+<ol><li>Tap <strong>New Organization</strong>.</li><li>Enter the dealer's name, its first store, and the owner's name and email. The email can't already have a Field Ready login: each login belongs to one organization.</li><li>Tap <strong>Create Organization</strong>. It makes the organization, the store, and the owner's login, and loads the default option lists and the Guidance, Planter, and starter Machine checklists.</li><li>A temporary password and a message for the owner appear once. Tap <strong>Copy Message</strong> (or <strong>Copy</strong> for the password alone), send it to them, then tap <strong>Done</strong>.</li></ol>
+<p>The owner signs in, chooses their own password, and sets up the rest on the pages above: stores, people, customers, options, and checklists. Until they choose a password, their line says <strong>Hasn't chosen a password yet</strong>. If they lose the temporary password, <strong>New Temporary Password</strong> next to their name makes another.</p>
 </section>
 <section class="card" id="troubleshooting-and-common-questions">
 <h2>Troubleshooting and common questions</h2>

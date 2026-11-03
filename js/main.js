@@ -1,13 +1,16 @@
 // The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
 // every page; employees see Customers & machines for their store and their own Custom checklists.
-// Customer logins use the app.
+// Platform admins (public.platform_admins) also see Organizations, where new dealers are set up.
+// Customer logins use the app. Someone on a temporary password chooses their own first.
 
-import { supabase, signIn, signOut, loadProfile, describe } from "./api.js";
+import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe } from "./api.js";
 import { escape } from "./ui.js";
+import { newPasswordProblem } from "./people-model.js";
 import { mountChecklist } from "./views/checklist.js";
 import { mountOptions } from "./views/options.js";
 import { mountPeople } from "./views/people.js";
 import { mountCustomers } from "./views/customers.js";
+import { mountOrganizations } from "./views/organizations.js";
 
 const root = document.getElementById("app");
 
@@ -19,12 +22,13 @@ const PAGES = [
   { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
+  { id: "organizations", label: "Organizations", mount: mountOrganizations, roles: STAFF, platformOnly: true },
 ];
 
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee" };
 
 /** The pages this person may open. */
-const pagesFor = (profile) => PAGES.filter((page) => page.roles.includes(profile?.role));
+const pagesFor = (profile) => PAGES.filter((page) => page.roles.includes(profile?.role) && (!page.platformOnly || profile.isPlatformAdmin));
 
 /** The page named in the address (#options) if this person may open it, or their first page (employees: customers). */
 function pageFromAddress(profile = current.profile) {
@@ -42,7 +46,7 @@ function renderSignIn(message = "") {
         <div class="hero">
           <p class="eyebrow">Field Ready</p>
           <h1>Admin</h1>
-          <p>Agri-Service staff manage customers, machines, checklists, and options here. Sign in with your Field Ready email and password.</p>
+          <p>Dealer staff manage customers, machines, checklists, and options here. Sign in with your Field Ready email and password.</p>
         </div>
         <form class="card" data-signin>
           <label>Email <input name="email" type="email" autocomplete="username" required></label>
@@ -79,6 +83,47 @@ function renderNoAccess(email, reason) {
       </div>
     </main>`;
   root.querySelector("[data-signout]").addEventListener("click", signOut);
+}
+
+/** A first sign-in with a temporary password: nothing else opens until they choose their own. */
+function renderChoosePassword(profile, message = "") {
+  root.innerHTML = `
+    <main class="signin">
+      <div class="signin-card">
+        <div class="hero">
+          <p class="eyebrow">Field Ready</p>
+          <h1>Choose a password</h1>
+          <p>You signed in with a temporary password. Choose your own to keep using Field Ready. It works in the app too.</p>
+        </div>
+        <form class="card" data-choose>
+          <input name="username" type="email" autocomplete="username" value="${escape(profile.email)}" hidden>
+          <label>New password <input name="password" type="password" autocomplete="new-password" required></label>
+          <label>New password again <input name="confirmation" type="password" autocomplete="new-password" required></label>
+          ${message ? `<p class="form-error" role="alert">${escape(message)}</p>` : ""}
+          <button class="primary" type="submit">Save Password</button>
+          <p class="hint">Signed in as ${escape(profile.email)}. <button class="link" type="button" data-signout>Sign Out</button></p>
+        </form>
+      </div>
+    </main>`;
+  root.querySelector("[data-signout]").addEventListener("click", signOut);
+  const form = root.querySelector("[data-choose]");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const problem = newPasswordProblem(form.password.value, form.confirmation.value);
+    if (problem) return renderChoosePassword(profile, problem);
+    const button = form.querySelector("button.primary");
+    button.disabled = true;
+    button.textContent = "Saving…";
+    try {
+      await chooseOwnPassword(profile.id, form.password.value);
+      profile.must_change_password = false;
+      current.profile = profile;
+      current.page = pageFromAddress(profile);
+      renderShell();
+    } catch (error) {
+      renderChoosePassword(profile, describe(error));
+    }
+  });
 }
 
 function renderShell() {
@@ -133,7 +178,12 @@ async function show(session) {
       return;
     }
     if (!STAFF.includes(profile.role)) {
-      renderNoAccess(session.user.email, "The website is for Agri-Service staff. Use the Field Ready app to see your equipment and inspections.");
+      renderNoAccess(session.user.email, "The website is for your dealer's staff. Use the Field Ready app to see your equipment and inspections.");
+      return;
+    }
+    profile.isPlatformAdmin = await isPlatformAdmin(profile.id);
+    if (profile.must_change_password) {
+      renderChoosePassword(profile);
       return;
     }
     current.profile = profile;
@@ -149,6 +199,8 @@ supabase.auth.onAuthStateChange((event, session) => {
   // Token refreshes (and repeat sign-in notices when the tab regains focus) keep the same person
   // signed in; only redraw when who's signed in changes, so unsaved edits aren't lost.
   if (event !== "SIGNED_OUT" && current.profile && session?.user.id === current.profile.id) return;
+  // Choosing a password (USER_UPDATED) doesn't change who's signed in; that screen carries on itself.
+  if (event === "USER_UPDATED") return;
   // Load outside the callback: database calls made inside it can wait on the sign-in lock forever.
   setTimeout(() => show(session), 0);
 });

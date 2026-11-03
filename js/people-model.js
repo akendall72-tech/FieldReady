@@ -78,3 +78,10 @@ export function temporaryPassword(random = (n) => crypto.getRandomValues(new Uin
   const chars = Array.from(values.slice(1), (v) => CLEAR[v % CLEAR.length]).join("");
   return `${word}-${chars.slice(0, 4)}-${chars.slice(4)}`;
 }
+
+/** What's wrong with a password someone is choosing for themselves (the app's rule), or null. */
+export function newPasswordProblem(password, confirmation) {
+  if (String(password ?? "").length < 8) return "Use at least 8 characters.";
+  if (password !== confirmation) return "The passwords don't match.";
+  return null;
+}
