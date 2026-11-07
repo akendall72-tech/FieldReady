@@ -70,6 +70,10 @@ export function describeActivity(entry) {
     case "contact.removed": return `removed the store contact ${subject}`;
     case "organization.created": return `set up the organization ${subject}${d.store ? ` with the store ${d.store}` : ""}`;
     case "organization.renamed": return `renamed the organization: ${changes(d, { name: "" }).trim() || subject}`;
+    case "organization.changed": {
+      const on = pair(d.customer_inspections);
+      return on ? `turned customer inspections ${on[1] ? "on" : "off"}` : "changed the organization's settings";
+    }
     case "form.published": return `published the ${subject} form`;
     case "form.retired": return `retired the ${subject} form`;
     case "option.added": return `added ${subject} to ${listName(d.list)}`;

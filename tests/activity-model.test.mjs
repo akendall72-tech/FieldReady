@@ -20,7 +20,7 @@ check("People covers people, logins and two-step", groupFilter("people") === "ac
 check("Emails covers sent and failed", groupFilter("emails") === "action.like.email.*");
 const actions = ["person.changed", "person.access_off", "person.access_on", "person.removed", "login.created", "login.deleted", "two_step.reset",
   "email.sent", "email.failed", "store.added", "store.renamed", "store.closed", "store.reopened", "store.removed", "contact.added",
-  "contact.changed", "contact.removed", "organization.created", "organization.renamed", "form.published", "form.retired",
+  "contact.changed", "contact.removed", "organization.created", "organization.renamed", "organization.changed", "form.published", "form.retired",
   "option.added", "option.changed", "option.removed", "customer.deleted", "machine.deleted", "inspection.deleted"];
 const groupsOf = (action) => ACTIVITY_GROUPS.filter((g) => g.prefixes.some((p) => action.startsWith(p))).map((g) => g.id);
 check("every action the database and the function record has exactly one filter", actions.every((action) => groupsOf(action).length === 1));
@@ -39,6 +39,8 @@ check("a password link emailed", say("email.sent", "Pat", { kind: "reset" }) ===
 check("an email that failed, link shown", say("email.failed", "Pat", { linkShown: true }) === "couldn't email Pat; the link was shown to copy");
 check("a renamed store", say("store.renamed", "South", { name: ["Old South", "South"] }) === "renamed a store: Old South → South");
 check("a store contact", say("contact.added", "Sam", { role: "ptx_specialist", store: "North" }) === "added Sam as a store contact (PTx specialist, North)");
+check("customer inspections turned off", say("organization.changed", "Agri-Service", { customer_inspections: [true, false] }) === "turned customer inspections off");
+check("…and on", say("organization.changed", "Agri-Service", { customer_inspections: [false, true] }) === "turned customer inspections on");
 check("a published form", say("form.published", "PTx guidance inspection 1.1") === "published the PTx guidance inspection 1.1 form");
 check("an option added names its list", say("option.added", "Trimble RTX", { list: "correction_service" }) === "added Trimble RTX to correction services");
 check("an option renamed and hidden", say("option.changed", "Trimble RTX", { list: "correction_service", label: ["RTX", "Trimble RTX"], shown: [true, false] })

@@ -44,7 +44,7 @@ export async function signOut() {
 export async function loadProfile(userId) {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, organization_id, must_change_password, organizations(name), locations(name)")
+    .select("id, full_name, email, role, active, location_id, organization_id, customer_id, must_change_password, organizations(name), locations(name), customers!profiles_customer_fkey(name, location_id)")
     .eq("id", userId)
     .maybeSingle());
 }
@@ -291,6 +291,18 @@ export async function callPeople(action, payload) {
     throw new Error("Couldn't reach the people server function. If it hasn't been deployed yet, deploy it in Supabase (see supabase/README.md in the app repository); otherwise check your connection.");
   }
   throw error;
+}
+
+/** Whether customer logins can do inspections in the app (the organization's switch, on by default). */
+export async function loadCustomerInspections(organizationId) {
+  const row = unwrap(await supabase.from("organizations").select("customer_inspections").eq("id", organizationId).maybeSingle());
+  return row?.customer_inspections !== false;
+}
+
+/** Owners turn customer inspections on or off for their organization. */
+export async function saveCustomerInspections(organizationId, on) {
+  const rows = unwrap(await supabase.from("organizations").update({ customer_inspections: on }).eq("id", organizationId).select("id"));
+  if (!rows.length) throw new Error("That wasn't saved. Only owners can change it.");
 }
 
 /** The people server function this website expects: its VERSION (supabase/functions/people/index.ts). */

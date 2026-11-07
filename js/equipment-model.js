@@ -31,6 +31,10 @@ export const SUBSCRIPTION_SOURCES = [
 export const canEdit = (viewer, storeId) =>
   viewer.role === "owner" || ((viewer.role === "admin" || viewer.role === "employee") && storeId === viewer.location_id);
 
+/** A customer login's own farm machine: customers add, change, and archive these (the database checks the same). */
+export const customerOwns = (viewer, machine) =>
+  viewer.role === "customer" && Boolean(viewer.customer_id) && machine?.customer_id === viewer.customer_id;
+
 /** Archiving and deleting: owners anywhere, admins at their own store. */
 export const canManage = (viewer, storeId) =>
   viewer.role === "owner" || (viewer.role === "admin" && storeId === viewer.location_id);

@@ -413,3 +413,12 @@ a.guide-button:hover { background: var(--pass-green); }
 .activity-list p { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .activity-list li { grid-template-columns: 1fr; } }
 .version-banner { margin: 12px 24px 0; }
+
+/* ---------- customers: My equipment, and the owner's switch */
+
+ul.farm-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.farm-list .list-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius); color: var(--text); font-weight: 400; }
+.farm-list .list-row:hover { border-color: var(--field-green); }
+.customer-switch { margin-bottom: 16px; }
+.customer-switch .hint { margin: 6px 0 0; }

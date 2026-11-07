@@ -4,7 +4,7 @@
 //   $JSC -m tests/equipment-model.test.mjs
 
 import {
-  canEdit, canManage, storesFor, canDeleteMachine, canDeleteCustomer, customerProblems, machineProblems, cleanMachine,
+  canEdit, canManage, customerOwns, storesFor, canDeleteMachine, canDeleteCustomer, customerProblems, machineProblems, cleanMachine,
   isFactoryIntegrated, steeringFor, choices, hasCorrectionLevel, serviceGroups, featureChanges, featureStates, machineName,
   findCustomers, canHaveGuidance, hasPlanterTechnology, questionsFor, answerChoices, cleanAnswers,
   softwareFits, softwareFor, softwareAfterSystemChange,
@@ -29,6 +29,12 @@ const stores = [
 // Who may do what
 check("everyone edits at their own store", canEdit(owner, "south") && canEdit(admin, "north") && canEdit(tech, "north"));
 check("…but staff not at another store", !canEdit(admin, "south") && !canEdit(tech, "south"));
+const farmer = { id: "c1", role: "customer", customer_id: "farm-1", location_id: null };
+check("a customer login owns its farm's machines", customerOwns(farmer, { customer_id: "farm-1" }));
+check("…not another farm's", !customerOwns(farmer, { customer_id: "farm-2" }) && !customerOwns(farmer, null));
+check("…and staff own none", !customerOwns(owner, { customer_id: "farm-1" }));
+check("…nor a customer login with no farm", !customerOwns({ ...farmer, customer_id: null }, { customer_id: null }));
+check("customers don't edit by store", !canEdit(farmer, null) && !canManage(farmer, null));
 check("owners and admins archive and delete at their store", canManage(owner, "south") && canManage(admin, "north"));
 check("employees never archive or delete", !canManage(tech, "north"));
 check("owners pick any store in use", storesFor(owner, stores).map((s) => s.id).join() === "north,south");

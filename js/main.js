@@ -17,13 +17,16 @@ import { mountOrganizations } from "./views/organizations.js";
 import { mountSubscriptions } from "./views/subscriptions.js";
 import { mountAccount } from "./views/account.js";
 import { mountActivity } from "./views/activity.js";
+import { mountFarm } from "./views/farm.js";
 
 const root = document.getElementById("app");
 
 const STAFF = ["owner", "admin", "employee"];
 const MANAGERS = ["owner", "admin"];
+const EVERYONE = [...STAFF, "customer"];
 
 const PAGES = [
+  { id: "farm", label: "My equipment", mount: mountFarm, roles: ["customer"] },
   { id: "checklist", label: "Inspection forms", mount: mountChecklist, roles: STAFF },
   { id: "subscriptions", label: "Subscriptions", mount: mountSubscriptions, roles: MANAGERS },
   { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
@@ -31,10 +34,10 @@ const PAGES = [
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
   { id: "activity", label: "Activity", mount: mountActivity, roles: ["owner"] },
   { id: "organizations", label: "Organizations", mount: mountOrganizations, roles: STAFF, platformOnly: true },
-  { id: "account", label: "Account", mount: mountAccount, roles: STAFF },
+  { id: "account", label: "Account", mount: mountAccount, roles: EVERYONE },
 ];
 
-const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee" };
+const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee", customer: "Customer" };
 
 /** The pages this person may open. */
 const pagesFor = (profile) => PAGES.filter((page) => page.roles.includes(profile?.role) && (!page.platformOnly || profile.isPlatformAdmin));
@@ -55,7 +58,7 @@ function renderSignIn(message = "") {
         <div class="hero">
           <p class="eyebrow">Field Ready</p>
           <h1>Admin</h1>
-          <p>Dealer staff manage customers, machines, checklists, and options here. Sign in with your Field Ready email and password.</p>
+          <p>Dealer staff manage customers, machines, checklists, and options here; customers add and update their machines. Sign in with your Field Ready email and password.</p>
         </div>
         <form class="card" data-signin>
           <label>Email <input name="email" type="email" autocomplete="username" required></label>
@@ -184,7 +187,7 @@ function renderShell() {
       <div class="brand"><span class="mark" aria-hidden="true"></span><span>Field Ready <strong>Admin</strong></span></div>
       <div class="who">
         <span>${escape(profile.full_name || profile.email)} · ${roleLabel}${profile.organizations?.name ? ` · ${escape(profile.organizations.name)}` : ""}</span>
-        <a class="guide-link" href="admin-guide.html" target="_blank" rel="noopener">Guide</a>
+        <a class="guide-link" href="${profile.role === "customer" ? "guide.html" : "admin-guide.html"}" target="_blank" rel="noopener">Guide</a>
         <button class="link" data-signout>Sign Out</button>
       </div>
     </header>
@@ -253,8 +256,8 @@ async function show(session) {
       renderNoAccess(session.user.email, "Nobody has given this login access to Field Ready. Ask your Field Ready owner.");
       return;
     }
-    if (!STAFF.includes(profile.role)) {
-      renderNoAccess(session.user.email, "The website is for your dealer's staff. Use the Field Ready app to see your equipment and inspections.");
+    if (!EVERYONE.includes(profile.role) || (profile.role === "customer" && !profile.customer_id)) {
+      renderNoAccess(session.user.email, "This login can't use the website. Ask your Field Ready owner.");
       return;
     }
     profile.isPlatformAdmin = await isPlatformAdmin(profile.id);

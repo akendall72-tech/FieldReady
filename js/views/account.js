@@ -48,7 +48,7 @@ export function mountAccount(root, { profile }) {
         ${state.enrolling ? enrollForm() : ""}
         ${factor ? `
           <p class="hint">On since ${escape(new Date(factor.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }))}.
-            Lost your phone? Another owner can reset it from People &amp; stores.</p>
+            ${profile.role === "customer" ? "Lost your phone? Ask your dealer to reset it." : "Lost your phone? Another owner can reset it from People &amp; stores."}</p>
           <button class="danger" data-action="turn-off" data-id="${escape(factor.id)}"${attr("disabled", state.busy)}>Turn Off</button>` : ""}
       </div>`;
   }

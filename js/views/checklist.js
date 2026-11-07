@@ -50,6 +50,8 @@ export function mountChecklist(root, { profile }) {
     moreOpen: false,
     busy: false,
     loadError: null,
+    /** Owners: whether customer logins can do inspections with these forms (null until loaded). */
+    customerInspections: null,
   };
   /** Saving the draft a moment after each change. */
   const saving = { timer: null, running: null, error: null };
@@ -90,9 +92,13 @@ export function mountChecklist(root, { profile }) {
 
   /** Reads the checklist versions and option lists from the server into `state`. */
   async function fetchAll() {
-    const [rows, options] = await Promise.all([api.loadChecklists(), api.loadOptions()]);
+    const [rows, options, customerInspections] = await Promise.all([
+      api.loadChecklists(), api.loadOptions(),
+      isOwner ? api.loadCustomerInspections(profile.organization_id).catch(() => null) : null,
+    ]);
     state.allRows = rows;
     state.options = options;
+    state.customerInspections = customerInspections;
     if (isCustom() && state.templateId && !checklists("custom").some((c) => c.id === state.templateId)) state.templateId = null;
     if (!isCustom()) state.templateId = chosenTemplate();
     openChecklist();
@@ -196,8 +202,34 @@ export function mountChecklist(root, { profile }) {
     root.innerHTML = `
       <div data-notice></div>
       ${kindTabs()}
+      ${customerSwitch()}
       ${picker()}
       ${body}`;
+  }
+
+  /** Owners: the organization's switch for customer logins doing inspections in the app. */
+  function customerSwitch() {
+    if (!isOwner || state.customerInspections === null || isCustom()) return "";
+    return `
+      <div class="card customer-switch">
+        <label class="check"><input type="checkbox" data-field="customer-inspections"${state.customerInspections ? " checked" : ""}>
+          <strong>Customers can do inspections in the app</strong></label>
+        <p class="hint">Customer logins inspect their own machines with these published forms (not Custom checklists). Their
+          drafts are theirs alone; you see each one, marked as done by the customer, once they finalize it.</p>
+      </div>`;
+  }
+
+  async function saveCustomerSwitch(on) {
+    const before = state.customerInspections;
+    state.customerInspections = on;
+    try {
+      await api.saveCustomerInspections(profile.organization_id, on);
+      notice(root, on ? "Customers can do inspections in the app." : "Customers can't start new inspections. Ones they already started can still be finished.", "success");
+    } catch (error) {
+      state.customerInspections = before;
+      render();
+      notice(root, api.describe(error), "error");
+    }
   }
 
   function editor() {
@@ -698,6 +730,9 @@ export function mountChecklist(root, { profile }) {
       return;
     }
     switch (target.dataset.field) {
+      case "customer-inspections":
+        if (event.type === "change") await saveCustomerSwitch(target.checked);
+        return;
       case "show-retired":
         state.showRetired = target.checked;
         return render();

@@ -3,7 +3,9 @@
 // Opened from the Customers & machines page, which it returns to when closed.
 //
 // Everyone on staff edits machines at their own store (owners anywhere); owners and admins also
-// archive and delete. The database enforces this; the page only hides what someone can't do.
+// archive and delete. Customer logins (from My equipment) edit their own farm's machines, archive
+// them, and delete ones with no inspections; they never pick a customer or store. The database
+// enforces all of this; the page only hides what someone can't do.
 
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
@@ -21,7 +23,9 @@ const BLANK_SUBSCRIPTION = {
  */
 export function mountMachine(root, ctx) {
   const { profile, options: rows, stores, customers } = ctx;
-  const viewer = { id: profile.id, role: profile.role, location_id: profile.location_id };
+  const viewer = { id: profile.id, role: profile.role, location_id: profile.location_id, customer_id: profile.customer_id };
+  const isCustomer = profile.role === "customer";
+  const backLabel = isCustomer ? "← My equipment" : "← Customers &amp; machines";
   const state = {
     machine: null,
     draft: null,
@@ -33,8 +37,13 @@ export function mountMachine(root, ctx) {
     loadError: null,
   };
 
-  const editable = () => model.canEdit(viewer, state.machine?.location_id ?? state.draft.location_id);
-  const manageable = () => state.machine?.id && model.canManage(viewer, state.machine.location_id);
+  const editable = () => (isCustomer
+    ? model.customerOwns(viewer, state.machine ?? state.draft)
+    : model.canEdit(viewer, state.machine?.location_id ?? state.draft.location_id));
+  /** Customers archive their own machines (only staff bring one back) and delete ones with no inspections. */
+  const manageable = () => state.machine?.id && (isCustomer
+    ? model.customerOwns(viewer, state.machine) && !state.machine.archived_at
+    : model.canManage(viewer, state.machine.location_id));
   /** The type's settings decide which technology the machine records (the app's rules). */
   const hasGuidance = () => model.canHaveGuidance(rows, state.draft.equipment_type);
   const isDirty = () => JSON.stringify(state.draft) !== state.saved
@@ -80,7 +89,7 @@ export function mountMachine(root, ctx) {
     if (state.loadError) {
       root.innerHTML = `
         <div data-notice></div>
-        <button class="link" data-action="close">← Customers &amp; machines</button>
+        <button class="link" data-action="close">${backLabel}</button>
         <div class="card"><h2>Couldn't open the machine</h2><p>${escape(state.loadError)}</p></div>`;
       return;
     }
@@ -88,16 +97,17 @@ export function mountMachine(root, ctx) {
     const customer = customers.find((c) => c.id === state.draft.customer_id);
     root.innerHTML = `
       <div data-notice></div>
-      <button class="link back" data-action="close">← Customers &amp; machines</button>
+      <button class="link back" data-action="close">${backLabel}</button>
       <div class="toolbar">
         <div>
           <h1>${escape(machine ? model.machineName(machine) : "New machine")}</h1>
-          <p class="meta">${escape([customer?.name, storeName(state.draft.location_id), machine?.serial_number, machine?.archived_at ? "Archived" : ""].filter(Boolean).join(" · "))}</p>
+          <p class="meta">${escape([isCustomer ? "" : customer?.name, isCustomer ? "" : storeName(state.draft.location_id), machine?.serial_number, machine?.archived_at ? "Archived" : ""].filter(Boolean).join(" · "))}</p>
           ${machine ? `<p class="meta">${machine.finalized} finalized ${machine.finalized === 1 ? "inspection" : "inspections"}. Inspections are done in the app.</p>` : ""}
         </div>
       </div>
-      ${editable() ? "" : '<p class="callout">This machine is at another store, so you can look but not change it.</p>'}
-      ${machine?.customer_changed ? `
+      ${editable() ? "" : `<p class="callout">${isCustomer ? "This machine isn't on your farm, so you can look but not change it." : "This machine is at another store, so you can look but not change it."}</p>`}
+      ${isCustomer && machine?.archived_at ? '<p class="callout">Archived. Your dealer can bring it back.</p>' : ""}
+      ${machine?.customer_changed && !isCustomer ? `
         <div class="card customer-changed">
           <p><strong>The customer added or changed this machine in their app.</strong> Check its details and technology. Saving a change here, or Mark Checked, clears this.</p>
           ${editable() ? `<button class="secondary" data-action="mark-checked"${attr("disabled", state.busy)}>Mark Checked</button>` : ""}
@@ -125,21 +135,21 @@ export function mountMachine(root, ctx) {
         <h2>Details</h2>
         <div class="grid2">
           <label>Equipment type ${select("equipment_type", "equipment_type", d.equipment_type)}</label>
-          <label>Customer
+          ${isCustomer ? "" : `<label>Customer
             <select data-field="customer_id"${disabled()}>
               ${customerOptions.map((c) => `<option value="${escape(c.id)}"${attr("selected", c.id === d.customer_id)}>${escape(c.name)}</option>`).join("")}
             </select>
-          </label>
+          </label>`}
           <label>Manufacturer <input data-field="manufacturer" value="${escape(d.manufacturer)}"${disabled()}></label>
           <label>Model <input data-field="model_name" value="${escape(d.model_name)}"${disabled()}></label>
           <label>Model year <input data-field="model_year" inputmode="numeric" value="${escape(d.model_year ?? "")}"${disabled()}></label>
           <label>Serial number <input data-field="serial_number" value="${escape(d.serial_number)}"${disabled()}></label>
           <label>Kept at (yard, shed…) <input data-field="yard_location" value="${escape(d.yard_location)}"${disabled()}></label>
-          <label>Store
+          ${isCustomer ? "" : `<label>Store
             <select data-field="location_id"${disabled()}>
               ${storeOptions.map((s) => `<option value="${escape(s.id)}"${attr("selected", s.id === d.location_id)}>${escape(s.name)}${s.active ? "" : " (not in use)"}</option>`).join("")}
             </select>
-          </label>
+          </label>`}
         </div>
         ${questionsBlock()}
         ${!hasGuidance() ? "" : `
@@ -335,7 +345,7 @@ export function mountMachine(root, ctx) {
     return `
       <div class="card">
         <h2>Archive or delete</h2>
-        <p class="hint">Archived machines are hidden from lists in the app and here, with their history kept.
+        <p class="hint">Archived machines are hidden from lists in the app and here, with their history kept.${isCustomer ? " Only your dealer can bring one back." : ""}
           ${model.canDeleteMachine(machine) ? "Deleting removes the machine and its technology and draft inspections everywhere." : "This machine has finalized inspections, so it can be archived but not deleted."}</p>
         <div class="actions">
           <button class="secondary" data-action="archive"${attr("disabled", state.busy)}>${machine.archived_at ? "Bring Back" : "Archive"}</button>
