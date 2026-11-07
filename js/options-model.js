@@ -78,6 +78,8 @@ export const LISTS = [
   {
     id: "correction_service",
     title: "Correction services",
+    /** Edited on the Subscriptions page, not Machine options. */
+    page: "subscriptions",
     about: "The services offered for each correction type when a subscription is added. Anything else can be typed in.",
     parentList: "correction_type",
     parentLabel: "Correction type",
@@ -162,6 +164,9 @@ export const SYMBOLS = [
 ];
 
 export const listInfo = (id) => LISTS.find((list) => list.id === id);
+
+/** The lists the Machine options page shows (correction services are on Subscriptions). */
+export const MACHINE_LISTS = LISTS.filter((list) => !list.page);
 
 /**
  * The icon the app shows for an option: its own, or for one saved without an icon, the app's

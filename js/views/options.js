@@ -1,5 +1,5 @@
 // The machine options editor: the choices technicians pick from when they describe a machine's
-// technology (guidance systems, steering, correction services, features…).
+// technology (guidance systems, steering, features…). Correction services are on Subscriptions.
 //
 // Owners rename, reorder, hide, and add options and change the settings the app reads. Values never
 // change once saved, because machines and inspections store them; hidden options stay readable on
@@ -14,7 +14,7 @@ export function mountOptions(root, { profile }) {
   const state = {
     rows: [],
     saved: new Map(),
-    list: model.LISTS[0].id,
+    list: model.MACHINE_LISTS[0].id,
     /** For lists under another (services under a correction type, answers under a question): the one shown, by list. */
     parents: {},
     /** For lists with "used on": the equipment type shown, or "" for all. */
@@ -123,7 +123,7 @@ export function mountOptions(root, { profile }) {
   }
 
   function outline() {
-    return `<ol class="outline-list">${model.LISTS.map((list) => {
+    return `<ol class="outline-list">${model.MACHINE_LISTS.map((list) => {
       const count = state.rows.filter((row) => row.list === list.id && row.active).length;
       const selected = state.list === list.id;
       return `

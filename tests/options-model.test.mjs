@@ -138,17 +138,18 @@ const sample = () => [
 const seedPath = (typeof arguments !== "undefined" ? arguments : scriptArgs ?? [])[0];
 if (seedPath) {
   const seed = read(seedPath);
-  const lists = new Set([...seed.matchAll(/^\s*\('([a-z_]+)', '/gm)].map((m) => m[1]));
-  const ids = new Set(LISTS.map((list) => list.id));
-  const unknown = [...lists].filter((list) => !ids.has(list));
-  check(`every seeded list is editable (${unknown.join(", ")})`, lists.size > 0 && unknown.length === 0);
   const text = (sql) => sql.slice(1, -1).replaceAll("''", "'");
   const literal = "'(?:[^']|'')*'";
+  // Option rows have six columns; the Guidance forms' (system, title) pairs don't count.
   const tuple = new RegExp(`^\\s*\\((${literal}), (${literal}), (${literal}), (null|${literal}), (\\d+), (${literal})\\)`, "gm");
   const seeded = [...seed.matchAll(tuple)].map((m, n) => ({
     id: `seed-${n}`, list: text(m[1]), value: text(m[2]), label: text(m[3]), parent_value: m[4] === "null" ? null : text(m[4]),
     sort_order: Number(m[5]), active: true, details: JSON.parse(text(m[6])),
   }));
+  const lists = new Set(seeded.map((row) => row.list));
+  const ids = new Set(LISTS.map((list) => list.id));
+  const unknown = [...lists].filter((list) => !ids.has(list));
+  check(`every seeded list is editable (${unknown.join(", ")})`, lists.size > 0 && unknown.length === 0);
   const found = problems(seeded);
   check(`the default options pass the rules (${found.join(" ")})`, seeded.length > 50 && found.length === 0);
   const symbols = new Set(SYMBOLS.map((s) => s.value));

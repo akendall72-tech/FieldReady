@@ -92,6 +92,7 @@ const pick = (row, columns) => Object.fromEntries(columns.map((column) => [colum
 /**
  * Adds new options and saves edited ones. An edited option someone else saved since it was loaded
  * is skipped, and SaveConflict names them, so nobody's change is overwritten without them knowing.
+ * Each saved row's `updated_at` is set to its new save time, so it can be saved again.
  */
 export async function saveOptions(added, updated) {
   if (added.length) {
@@ -106,8 +107,9 @@ export async function saveOptions(added, updated) {
       .update(pick(row, ["label", "sort_order", "active", "details"]))
       .eq("id", row.id)
       .eq("updated_at", row.updated_at)
-      .select("id"));
+      .select("id, updated_at"));
     if (rows.length === 0) skipped.push(row.label);
+    else row.updated_at = rows[0].updated_at;
   }
   if (skipped.length) {
     throw new SaveConflict(`Someone else changed ${skipped.map((label) => `“${label}”`).join(", ")} since you opened this page, so ${skipped.length === 1 ? "that change wasn't" : "those changes weren't"} saved.`);

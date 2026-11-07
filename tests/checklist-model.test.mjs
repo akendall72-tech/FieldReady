@@ -8,7 +8,8 @@
 
 import {
   problems, isNewer, nextVersion, liveVersion, slug, uniqueKey, newCheck, newSection, draftFrom, move, itemKeys,
-  kindOf, typesOf, newChecklist, copyChecklist,
+  kindOf, typesOf, newChecklist, copyChecklist, guidanceForms, machineFormFor, formId, guidanceFormFrom, machineFormFrom,
+  FACTORY, OTHER_SYSTEM,
 } from "../js/checklist-model.js";
 
 let passed = 0;
@@ -157,6 +158,55 @@ check("checks can branch on answers and types", problems(branching).length === 0
 branching.sections[0].items[0].appliesTo = { answers: { undercarriage: "tracks" } };
 check("…in the shape phones read", problems(branching).some((p) => p.includes("answers setting")));
 
+// Guidance forms: one per system
+{
+  const systems = [
+    { value: "ptx", label: "PTx", active: true, details: { factoryIntegrated: false } },
+    { value: "fendtGuide", label: "Fendt Guide", active: true, details: { factoryIntegrated: true } },
+    { value: "mfGuide", label: "MF Guide", active: true, details: { factoryIntegrated: true } },
+    { value: "other", label: "Other", active: true, details: { factoryIntegrated: false } },
+    { value: "johnDeere", label: "John Deere", active: true, details: { factoryIntegrated: false } },
+    { value: "trimble", label: "Trimble", active: true, details: { factoryIntegrated: false } },
+    { value: "oldBrand", label: "Old brand", active: false, details: { factoryIntegrated: false } },
+  ];
+  const form = (system, extra = {}) => ({ id: `guidance-${system}`, content: { ...minimal(), id: `guidance-${system}`, kind: "guidance", system, title: `${system} form` }, retired: false, ...extra });
+  const shared = { id: "preseason-general", content: minimal(), retired: false };
+  const forms = [form("factory"), form("ptx"), form("johnDeere"), form("other"), shared];
+  const entries = guidanceForms(systems, forms);
+  check("the dropdown: Factory, each other system, then Other", same(entries.map((e) => e.key), ["factory", "ptx", "johnDeere", "trimble", "other"]));
+  check("Factory Guidance names the systems it covers", same(entries[0].covers, ["Fendt Guide", "MF Guide"]) && entries[0].form.id === "guidance-factory");
+  check("a system without its own form has none (it uses Other)", entries.find((e) => e.key === "trimble").form === null);
+  check("hidden systems without a form are left out", !entries.some((e) => e.key === "oldBrand"));
+  check("a retired form doesn't count", guidanceForms(systems, [form("factory"), form("ptx", { retired: true }), form("other")]).find((e) => e.key === "ptx").form === null);
+  check("a form for a system no longer listed still shows", guidanceForms(systems, [...forms, form("gone")]).some((e) => e.key === "gone"));
+  check("before any forms, the shared checklist is the only entry", same(guidanceForms(systems, [shared]).map((e) => e.key), ["shared"]));
+  check("…and with neither, nothing", guidanceForms(systems, []).length === 0);
+
+  const trimble = guidanceFormFrom(form("other").content, { system: "trimble", title: "Trimble guidance inspection", taken: new Set(["guidance-other"]) });
+  check("a system's own form copies another with its own id and system", trimble.id === "guidance-trimble" && trimble.system === "trimble"
+    && trimble.version === "1" && trimble.kind === "guidance" && trimble.title === "Trimble guidance inspection" && problems(trimble).length === 0);
+  check("only Guidance forms name a system", problems({ ...trimble, kind: "machine" }).includes("Only Guidance forms are for a guidance system."));
+  check("…and the system can't be blank", problems({ ...trimble, system: " " }).includes("The Guidance form doesn't say which guidance system it's for."));
+  check("form ids come from what they're for", formId("machine", "combine") === "machine-combine" && formId("machine", "combine", new Set(["machine-combine"])) === "machine-combine2");
+  check("the shared ids are FACTORY and OTHER_SYSTEM", FACTORY === "factory" && OTHER_SYSTEM === "other");
+}
+
+// Machine forms: one per type
+{
+  const machine = (id, equipment, extra = {}) => ({ id, content: { ...minimal(), id, kind: "machine", equipment }, retired: false, ...extra });
+  const forms = [machine("machine-baleRake", ["baler", "rake"]), machine("machine-baler", ["baler"]), machine("machine-old", ["combine"], { retired: true })];
+  check("a type's own form comes first", machineFormFor("baler", forms).id === "machine-baler");
+  check("…else an older form that covers it among others", machineFormFor("rake", forms).id === "machine-baleRake");
+  check("retired forms don't count", machineFormFor("combine", forms) === null);
+  check("a form for every type covers the rest", machineFormFor("combine", [...forms, machine("machine-any", undefined)]).id === "machine-any");
+  const combine = machineFormFrom(null, { type: "combine", title: "Combine machine inspection", taken: new Set() });
+  check("a new Machine form is for one type, with one check to start", combine.id === "machine-combine" && same(combine.equipment, ["combine"])
+    && combine.kind === "machine" && combine.sections[0].items.length === 1);
+  const fromBaler = machineFormFrom(forms[1].content, { type: "windrower", title: "Windrower machine inspection", taken: new Set() });
+  check("…or a copy of another type's form", fromBaler.id === "machine-windrower" && same(fromBaler.equipment, ["windrower"]) && fromBaler.version === "1"
+    && fromBaler.sections[0].items.length === minimal().sections[0].items.length);
+}
+
 let known = {
   guidance_system: new Set(["ptx", "fendtGuide", "mfGuide", "other"]),
   feature: new Set(["implementGuidance", "automaticTurns", "sectionControl", "isobus", "rateControl", "dataTransfer"]),
@@ -164,7 +214,8 @@ let known = {
 };
 if (seedPath) {
   known = {};
-  for (const [, list, value] of read(seedPath).matchAll(/^\s*\('([a-z_]+)', '((?:[^']|'')*)'/gm)) {
+  // Option rows: (list, value, label, parent, order, details); the Guidance forms' (system, title) pairs don't count.
+  for (const [, list, value] of read(seedPath).matchAll(/^\s*\('([a-z_]+)', '((?:[^']|'')*)', '(?:[^']|'')*', (?:null|'[^']*'), \d+, /gm)) {
     (known[list] ??= new Set()).add(value.replaceAll("''", "'"));
   }
 }

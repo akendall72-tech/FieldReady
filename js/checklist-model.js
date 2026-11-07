@@ -35,9 +35,9 @@ export const PROFILE_FIELDS = [
 
 /** The kinds of inspection (InspectionKind in the app). */
 export const KINDS = [
-  { value: "guidance", label: "Guidance", about: "Display, receiver, steering, and correction checks, for every machine that can have guidance." },
-  { value: "planter", label: "Planter", about: "Precision Planting technology, for planters." },
-  { value: "machine", label: "Machine", about: "The condition of the machine itself. Each checklist says which equipment types it's for." },
+  { value: "guidance", label: "Guidance", about: "Display, receiver, steering, and correction checks. One form per guidance system: the app uses the form for the machine's system." },
+  { value: "planter", label: "Precision Planting", about: "Precision Planting technology, for planters." },
+  { value: "machine", label: "Machine", about: "The condition of the machine itself. One form per machine type." },
   { value: "custom", label: "Custom", about: "Your own checklists. Only you see them and use them in the app; once you finalize an inspection with one, your store's admins, the owners, and the customer can see that inspection." },
 ];
 
@@ -75,6 +75,10 @@ export function problems(content, known = {}) {
     if (!isText(content[field])) found.push(`The checklist is missing its ${field}.`);
   }
   if (content.kind != null && !KIND_VALUES.has(content.kind)) found.push("The checklist's kind isn't one phones know.");
+  if (content.system != null) {
+    if (kindOf(content) !== "guidance") found.push("Only Guidance forms are for a guidance system.");
+    if (isBlank(content.system)) found.push("The Guidance form doesn't say which guidance system it's for.");
+  }
   if (content.equipment != null && !isText(content.equipment) && !isStringArray(content.equipment)) {
     found.push("The checklist's equipment types can't be read.");
   } else if (known.equipment_type && typesOf(content).some((type) => !known.equipment_type.has(type))) {
@@ -271,4 +275,84 @@ export function move(array, index, offset) {
   const [element] = array.splice(index, 1);
   array.splice(target, 0, element);
   return target;
+}
+
+// ---------------------------------------------------------------- forms (GuidanceForm in the app)
+
+/** The Guidance form every factory-integrated system uses (Fendt Guide, MF Guide). */
+export const FACTORY = "factory";
+/** The Guidance form for any system without its own. */
+export const OTHER_SYSTEM = "other";
+
+/**
+ * The Form dropdown on the Guidance tab, in order: Factory Guidance, each other guidance system
+ * (its own form, or none yet: it uses Other), then Other. `systems` are the guidance_system
+ * options in their order; `forms` the Guidance checklists ({ id, content, retired, … }). Before
+ * any forms exist, the shared checklist they replace is the only entry.
+ */
+export function guidanceForms(systems, forms) {
+  const current = forms.filter((form) => !form.retired && form.content?.system != null);
+  if (current.length === 0) {
+    const shared = forms.find((form) => !form.retired && form.content?.system == null);
+    return shared ? [{ key: "shared", label: "Every system (shared checklist)", covers: [], form: shared }] : [];
+  }
+  const bySystem = new Map(current.map((form) => [form.content.system, form]));
+  const factory = (system) => system.details?.factoryIntegrated === true;
+  const entries = [{
+    key: FACTORY, label: "Factory Guidance",
+    covers: systems.filter((system) => factory(system) && system.active !== false).map((system) => system.label),
+    form: bySystem.get(FACTORY) ?? null,
+  }];
+  for (const system of systems) {
+    if (factory(system) || system.value === OTHER_SYSTEM || system.value === "unknown") continue;
+    const form = bySystem.get(system.value) ?? null;
+    if (system.active === false && !form) continue;
+    entries.push({ key: system.value, label: system.label, covers: [], form });
+  }
+  entries.push({ key: OTHER_SYSTEM, label: "Other", covers: ["any system without its own form"], form: bySystem.get(OTHER_SYSTEM) ?? null });
+  // A form for a system that's no longer listed still shows, so it can be edited.
+  for (const form of current) {
+    if (!entries.some((entry) => entry.key === form.content.system)) {
+      entries.push({ key: form.content.system, label: form.content.title || form.content.system, covers: [], form });
+    }
+  }
+  return entries;
+}
+
+/**
+ * The Machine form for an equipment type: the one made for just that type, else an older one
+ * that covers it among others, else one for every type. null when there's none.
+ */
+export function machineFormFor(type, forms) {
+  const current = forms.filter((form) => !form.retired);
+  const fitting = current.filter((form) => typesOf(form.content).includes(type));
+  return fitting.find((form) => typesOf(form.content).length === 1)
+    ?? fitting[0]
+    ?? current.find((form) => typesOf(form.content).length === 0)
+    ?? null;
+}
+
+/** A form's id from what it's for: "guidance-ptx", "machine-combine" (another if that's taken). */
+export function formId(kind, value, taken = new Set()) {
+  const id = `${kind}-${value}`;
+  return taken.has(id) ? uniqueKey(value, taken, `${kind}-`) : id;
+}
+
+/** A guidance system's own form, as a copy of another (usually Other), at version 1. */
+export function guidanceFormFrom(source, { system, title, taken = new Set() }) {
+  const copy = copyChecklist(source, { title, kind: "guidance", taken });
+  copy.id = formId("guidance", system, taken);
+  copy.system = system;
+  delete copy.equipment;
+  return copy;
+}
+
+/** A Machine form for one type: a copy of another type's form, or a new one with one check to start. */
+export function machineFormFrom(source, { type, title, taken = new Set() }) {
+  const form = source
+    ? copyChecklist(source, { title, kind: "machine", taken })
+    : newChecklist({ kind: "machine", title, taken });
+  form.id = formId("machine", type, taken);
+  form.equipment = [type];
+  return form;
 }

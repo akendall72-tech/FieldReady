@@ -11,6 +11,7 @@ import { mountOptions } from "./views/options.js";
 import { mountPeople } from "./views/people.js";
 import { mountCustomers } from "./views/customers.js";
 import { mountOrganizations } from "./views/organizations.js";
+import { mountSubscriptions } from "./views/subscriptions.js";
 
 const root = document.getElementById("app");
 
@@ -18,7 +19,8 @@ const STAFF = ["owner", "admin", "employee"];
 const MANAGERS = ["owner", "admin"];
 
 const PAGES = [
-  { id: "checklist", label: "Inspection checklists", mount: mountChecklist, roles: STAFF },
+  { id: "checklist", label: "Inspection forms", mount: mountChecklist, roles: STAFF },
+  { id: "subscriptions", label: "Subscriptions", mount: mountSubscriptions, roles: MANAGERS },
   { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
