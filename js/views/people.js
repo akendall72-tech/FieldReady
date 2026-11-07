@@ -323,6 +323,7 @@ export function mountPeople(root, { profile }) {
           <button class="primary" data-action="save-person" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Save</button>
           <button class="secondary" data-action="cancel-edit">Cancel</button>
           ${can.password ? `<button class="link" data-action="reset-password" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Send Password Link</button>` : ""}
+          ${isOwner && person.id !== viewer.id ? `<button class="link" data-action="reset-two-step" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Reset Two-Step</button>` : ""}
         </div>
       </li>`;
   }
@@ -478,6 +479,7 @@ export function mountPeople(root, { profile }) {
         return render();
       case "save-person": return savePerson(person);
       case "reset-password": return resetPassword(person);
+      case "reset-two-step": return resetTwoStep(person);
       case "cancel-invite": return cancelInvitation(element.dataset.email);
       case "toggle-contacts":
         state.contactsStore = state.contactsStore === element.dataset.store ? null : element.dataset.store;
@@ -562,6 +564,18 @@ export function mountPeople(root, { profile }) {
       state.edits = null;
       await fetchAll();
       return `Saved ${edits.full_name.trim() || person.email}. The app picks up the change the next time they open it.`;
+    });
+  }
+
+  /** They lost their authenticator: remove it so they can sign in with their password and set it up again. */
+  function resetTwoStep(person) {
+    const name = person.full_name || person.email;
+    if (!confirm(`Reset ${name}'s two-step sign-in? Use this only when they've lost their authenticator and you're sure it's them asking. They can then sign in with just their password and set it up again.`)) return;
+    return run(async () => {
+      const answer = await api.callPeople("resetTwoStep", { userId: person.id });
+      state.editing = null;
+      state.edits = null;
+      return answer?.removed ? `Turned off two-step sign-in for ${name}. They can set it up again on the Account page.` : `${name} didn't have two-step sign-in.`;
     });
   }
 

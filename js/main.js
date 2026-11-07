@@ -1,9 +1,12 @@
 // The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
 // every page; employees see Customers & machines for their store and their own Custom checklists.
 // Platform admins (public.platform_admins) also see Organizations, where new dealers are set up.
-// Customer logins use the app. Someone on a temporary password chooses their own first.
+// Customer logins use the app. Someone on a temporary password chooses their own first; someone with
+// two-step sign-in on enters their code before anything loads (the database shows them nothing
+// without it). Everyone on staff has an Account page to turn two-step sign-in on or off.
 
-import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe } from "./api.js";
+import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe, assuranceLevel, listFactors, verifyCode } from "./api.js";
+import { cleanCode, needsCode, verifiedFactor, WRONG_CODE, NOT_A_CODE } from "./two-step-model.js";
 import { escape } from "./ui.js";
 import { newPasswordProblem } from "./people-model.js";
 import { mountChecklist } from "./views/checklist.js";
@@ -12,6 +15,7 @@ import { mountPeople } from "./views/people.js";
 import { mountCustomers } from "./views/customers.js";
 import { mountOrganizations } from "./views/organizations.js";
 import { mountSubscriptions } from "./views/subscriptions.js";
+import { mountAccount } from "./views/account.js";
 
 const root = document.getElementById("app");
 
@@ -25,6 +29,7 @@ const PAGES = [
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
   { id: "organizations", label: "Organizations", mount: mountOrganizations, roles: STAFF, platformOnly: true },
+  { id: "account", label: "Account", mount: mountAccount, roles: STAFF },
 ];
 
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee" };
@@ -85,6 +90,46 @@ function renderNoAccess(email, reason) {
       </div>
     </main>`;
   root.querySelector("[data-signout]").addEventListener("click", signOut);
+}
+
+/** Two-step sign-in is on for this login: the code from their authenticator app comes next. */
+function renderCode(session, message = "") {
+  root.innerHTML = `
+    <main class="signin">
+      <div class="signin-card">
+        <div class="hero">
+          <p class="eyebrow">Two-step sign-in</p>
+          <h1>Enter your code</h1>
+          <p>Open your authenticator app and enter the 6-digit code for Field Ready.</p>
+        </div>
+        <form class="card" data-code>
+          <label>6-digit code <input name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
+          ${message ? `<p class="form-error" role="alert">${escape(message)}</p>` : ""}
+          <button class="primary" type="submit">Verify</button>
+          <p class="hint">Signed in as ${escape(session.user.email)}. Lost your authenticator? Ask your Field Ready owner to reset your two-step sign-in.
+            <button class="link" type="button" data-signout>Sign Out</button></p>
+        </form>
+      </div>
+    </main>`;
+  root.querySelector("[data-signout]").addEventListener("click", signOut);
+  const form = root.querySelector("[data-code]");
+  form.code.focus();
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const code = cleanCode(form.code.value);
+    if (!code) return renderCode(session, NOT_A_CODE);
+    const button = form.querySelector("button.primary");
+    button.disabled = true;
+    button.textContent = "Checking…";
+    try {
+      const factor = verifiedFactor(await listFactors());
+      if (!factor) throw new Error("Two-step sign-in isn't set up for this login. Sign out and sign in again.");
+      await verifyCode(factor.id, code);
+      show(session);
+    } catch (error) {
+      renderCode(session, /invalid|expired|code/i.test(error?.message ?? "") ? WRONG_CODE : describe(error));
+    }
+  });
 }
 
 /** A first sign-in with a temporary password: nothing else opens until they choose their own. */
@@ -174,6 +219,11 @@ async function show(session) {
   }
   root.innerHTML = `<p class="loading">Loading…</p>`;
   try {
+    // The code first: until it's entered, the database shows this person nothing.
+    if (needsCode(await assuranceLevel())) {
+      renderCode(session);
+      return;
+    }
     const profile = await loadProfile(session.user.id);
     if (!profile || !profile.active) {
       renderNoAccess(session.user.email, "Nobody has given this login access to Field Ready. Ask your Field Ready owner.");
@@ -201,8 +251,9 @@ supabase.auth.onAuthStateChange((event, session) => {
   // Token refreshes (and repeat sign-in notices when the tab regains focus) keep the same person
   // signed in; only redraw when who's signed in changes, so unsaved edits aren't lost.
   if (event !== "SIGNED_OUT" && current.profile && session?.user.id === current.profile.id) return;
-  // Choosing a password (USER_UPDATED) doesn't change who's signed in; that screen carries on itself.
-  if (event === "USER_UPDATED") return;
+  // Choosing a password (USER_UPDATED) or entering a code (MFA_CHALLENGE_VERIFIED) doesn't change
+  // who's signed in; those screens carry on themselves.
+  if (event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") return;
   // Load outside the callback: database calls made inside it can wait on the sign-in lock forever.
   setTimeout(() => show(session), 0);
 });

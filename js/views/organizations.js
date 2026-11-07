@@ -7,6 +7,7 @@ import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import * as model from "../organizations-model.js";
 import { inviteResult } from "../invite-model.js";
+import { verifiedFactor } from "../two-step-model.js";
 
 export function mountOrganizations(root, { profile }) {
   const state = {
@@ -22,6 +23,16 @@ export function mountOrganizations(root, { profile }) {
   async function load() {
     root.innerHTML = `<p class="loading">Loading organizations…</p>`;
     try {
+      // Platform actions need two-step sign-in (the server refuses them without it).
+      if (!verifiedFactor(await api.listFactors())) {
+        root.innerHTML = `
+          <div class="card">
+            <h2>Set up two-step sign-in first</h2>
+            <p>Managing organizations needs two-step sign-in, so a stolen password can't reach every dealer.
+              Turn it on on the <a href="#account">Account</a> page, then come back.</p>
+          </div>`;
+        return;
+      }
       state.organizations = (await api.callPeople("listOrganizations", {})).organizations ?? [];
       state.loadError = null;
     } catch (error) {
@@ -138,7 +149,8 @@ export function mountOrganizations(root, { profile }) {
               <span class="role role-owner">Owner</span>
               <span><strong>${escape(owner.name || owner.email)}</strong> <span class="hint">${escape(owner.email)}</span></span>
               <span class="${owner.active ? "hint" : "access-off"}">${escape(model.ownerStatus(owner))}</span>
-              ${owner.id === profile.id ? "" : `<button class="link" data-action="reset-owner" data-id="${escape(owner.id)}" data-org="${escape(organization.id)}"${attr("disabled", state.busy)}>New Password Link</button>`}
+              ${owner.id === profile.id ? "" : `<button class="link" data-action="reset-owner" data-id="${escape(owner.id)}" data-org="${escape(organization.id)}"${attr("disabled", state.busy)}>New Password Link</button>
+                <button class="link" data-action="reset-two-step" data-id="${escape(owner.id)}" data-name="${escape(owner.name || owner.email)}"${attr("disabled", state.busy)}>Reset Two-Step</button>`}
             </li>`).join("") || '<li class="hint">No owner yet.</li>'}
         </ol>
       </li>`;
@@ -199,6 +211,15 @@ export function mountOrganizations(root, { profile }) {
     });
   }
 
+  /** An owner lost their authenticator: remove it so they can sign in with their password and set it up again. */
+  function resetTwoStep(userId, name) {
+    if (!confirm(`Reset ${name}'s two-step sign-in? Use this only when they've lost their authenticator and you're sure it's them asking. They can then sign in with just their password and set it up again.`)) return;
+    return run(async () => {
+      const answer = await api.callPeople("resetTwoStep", { userId });
+      return answer?.removed ? `Turned off two-step sign-in for ${name}. They can set it up again on the Account page.` : `${name} didn't have two-step sign-in.`;
+    });
+  }
+
   /** Keeps the form's button and first problem current without redrawing (typing isn't interrupted). */
   function onInput(event) {
     const field = event.target.dataset.new;
@@ -229,6 +250,7 @@ export function mountOrganizations(root, { profile }) {
         state.adding = false;
         return render();
       case "reset-owner": return resetOwner(element.dataset.id, element.dataset.org);
+      case "reset-two-step": return resetTwoStep(element.dataset.id, element.dataset.name);
       case "dismiss-handover":
         state.handover = null;
         return render();

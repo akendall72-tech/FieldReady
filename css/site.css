@@ -211,6 +211,15 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 .handover .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .handover-message { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
 
+/* ---------- account (two-step sign-in) */
+
+.two-step-setup { border-top: 1px solid var(--hairline); margin-top: 12px; padding-top: 12px; }
+.two-step-setup ol { padding-left: 20px; }
+.two-step-setup li { margin-bottom: 10px; }
+.two-step-qr { display: block; margin: 10px 0; background: #FFFFFF; padding: 8px; border-radius: 8px; }
+.two-step-secret { overflow-wrap: anywhere; }
+.two-step-setup .actions { display: flex; gap: 8px; }
+
 /* ---------- welcome page (invitation emails) */
 
 .welcome-app { text-align: center; }

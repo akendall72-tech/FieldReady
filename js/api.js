@@ -57,6 +57,33 @@ export async function isPlatformAdmin(userId) {
   return !error && Boolean(data);
 }
 
+// ---------------------------------------------------------------- two-step sign-in
+
+/** How this session signed in: { currentLevel, nextLevel } (aal1 = password, aal2 = code too). */
+export async function assuranceLevel() {
+  return unwrap(await supabase.auth.mfa.getAuthenticatorAssuranceLevel());
+}
+
+/** The person's authenticators: { all, totp } (totp lists only the verified ones). */
+export async function listFactors() {
+  return unwrap(await supabase.auth.mfa.listFactors());
+}
+
+/** Checks a code from the authenticator (signing in, or finishing a set-up). */
+export async function verifyCode(factorId, code) {
+  unwrap(await supabase.auth.mfa.challengeAndVerify({ factorId, code }));
+}
+
+/** Starts setting up an authenticator: { id, totp: { qr_code, secret, uri } }. */
+export async function enrollAuthenticator() {
+  return unwrap(await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Field Ready" }));
+}
+
+/** Removes an authenticator (an unfinished set-up, or turning two-step off). */
+export async function removeAuthenticator(factorId) {
+  unwrap(await supabase.auth.mfa.unenroll({ factorId }));
+}
+
 /** Replaces a temporary password with the person's own, as the app does at a first sign-in. */
 export async function chooseOwnPassword(profileId, password) {
   unwrap(await supabase.auth.updateUser({ password }));
