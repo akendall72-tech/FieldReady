@@ -3,7 +3,8 @@
 //   JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
 //   $JSC -m tests/invite-model.test.mjs
 
-import { linkToken, appLink, linkProblem, inviteResult, inviteNotice } from "../js/invite-model.js";
+import * as inviteModel from "../js/invite-model.js";
+const { linkToken, linkProblem, inviteResult, inviteNotice } = inviteModel;
 
 let passed = 0;
 const failures = [];
@@ -24,8 +25,8 @@ check("unknown types are refused", linkToken("#token_hash=abc&type=signup") === 
 check("broken encoding is refused", linkToken("#token_hash=%E0%A4%A") === null);
 
 // Opening the app
-check("the app link carries the token", appLink({ token: "a+b=", type: "recovery" }) === "fieldready://welcome#token_hash=a%2Bb%3D&type=recovery");
-check("…which reads back the same", same(linkToken(appLink({ token: "a+b=", type: "recovery" }).split("#")[1]), { token: "a+b=", type: "recovery" }));
+check("the page never hands the token to a fieldready:// link", !("appLink" in inviteModel));
+check("a token with + and = reads back the same", same(linkToken("#token_hash=a%2Bb%3D&type=recovery"), { token: "a+b=", type: "recovery" }));
 
 // Problems in plain words
 check("expired links", linkProblem({ message: "Email link is invalid or has expired", status: 403 }).startsWith("This link has expired or was already used."));

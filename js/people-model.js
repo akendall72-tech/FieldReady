@@ -81,7 +81,8 @@ export function temporaryPassword(random = (n) => crypto.getRandomValues(new Uin
 
 /** What's wrong with a password someone is choosing for themselves (the app's rule), or null. */
 export function newPasswordProblem(password, confirmation) {
-  if (String(password ?? "").length < 8) return "Use at least 8 characters.";
+  // Supabase › Authentication › Email asks for the same minimum, and so does the app.
+  if (String(password ?? "").length < 10) return "Use at least 10 characters.";
   if (password !== confirmation) return "The passwords don't match.";
   return null;
 }

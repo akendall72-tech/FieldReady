@@ -2,6 +2,7 @@
 // access rules as the app apply: the website can't do anything their role doesn't allow.
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
+import { groupFilter } from "./activity-model.js";
 
 // Loaded by index.html from vendor/ (this site's own copy), before this module runs.
 const { createClient } = globalThis.supabase;
@@ -290,6 +291,31 @@ export async function callPeople(action, payload) {
     throw new Error("Couldn't reach the people server function. If it hasn't been deployed yet, deploy it in Supabase (see supabase/README.md in the app repository); otherwise check your connection.");
   }
   throw error;
+}
+
+/** The people server function this website expects: its VERSION (supabase/functions/people/index.ts). */
+export const EXPECTED_FUNCTION_VERSION = "2026-11-08";
+
+/** The deployed people function's version, or null when it predates the version check. */
+export async function functionVersion() {
+  try {
+    return (await callPeople("version", {}))?.version ?? null;
+  } catch (error) {
+    if (/unknown action/i.test(error?.message ?? "")) return null;
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------- activity log (owners)
+
+/** The organization's activity, newest first: up to `limit` entries older than entry `before` (an id), for one filter. */
+export async function loadActivity({ group = "all", before, limit = 100 } = {}) {
+  let query = supabase.from("activity_log").select("id, at, actor_name, action, subject, details")
+    .order("id", { ascending: false }).limit(limit);
+  const filter = groupFilter(group);
+  if (filter) query = query.or(filter);
+  if (before) query = query.lt("id", before);
+  return unwrap(await query);
 }
 
 // ---------------------------------------------------------------- customers and store contacts

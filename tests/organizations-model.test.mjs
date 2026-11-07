@@ -57,7 +57,8 @@ check("owners who chose a password", ownerStatus({ active: true, waiting: false 
 }
 
 // Choosing your own password
-check("passwords need 8 characters", newPasswordProblem("short", "short") === "Use at least 8 characters.");
+check("passwords need 10 characters", newPasswordProblem("short-pw1", "short-pw1") === "Use at least 10 characters.");
+check("…ten is enough", newPasswordProblem("long-enough", "long-enough") === null);
 check("passwords must match", newPasswordProblem("long enough", "long enougj") === "The passwords don't match.");
 check("a good password is fine", newPasswordProblem("long enough", "long enough") === null);
 

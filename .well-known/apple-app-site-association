@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["JNK4G66WVD.com.agribarn.fieldready"],
+        "components": [
+          { "/": "/welcome.html", "comment": "Invitation and password emails open the Field Ready app" }
+        ]
+      }
+    ]
+  }
+}

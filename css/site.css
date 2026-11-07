@@ -403,3 +403,13 @@ a.guide-button:hover { background: var(--pass-green); }
 /* The admin guide link in the top bar and on the sign-in screen. */
 .who a.guide-link { color: var(--canopy); background: var(--sprout); font-weight: 700; text-decoration: none; padding: 5px 12px; border-radius: 999px; }
 .signin .guide-link { color: var(--pine); font-weight: 700; }
+
+/* ---------- activity */
+
+.activity-list { list-style: none; margin: 0; padding: 0; }
+.activity-list li { display: grid; grid-template-columns: 11rem 1fr; gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.activity-list li:first-child { border-top: none; }
+.activity-list time { color: var(--text-secondary); font-size: 0.9rem; }
+.activity-list p { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .activity-list li { grid-template-columns: 1fr; } }
+.version-banner { margin: 12px 24px 0; }

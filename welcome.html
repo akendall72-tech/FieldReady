@@ -12,6 +12,8 @@
   <link rel="icon" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
   <link rel="stylesheet" href="css/site.css">
+  <!-- First: refuses to run inside another site's frame. -->
+  <script src="js/frame-guard.js"></script>
   <!-- Supabase's library, kept in this repository (see vendor/README.md) rather than loaded from a CDN. -->
   <script src="vendor/supabase-js-2.45.4/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"></script>
   <script type="module" src="js/welcome.js"></script>

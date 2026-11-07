@@ -1,7 +1,7 @@
 // Sign-in links from invitation emails. The `people` server function emails a one-time link to the
-// welcome page (welcome.html#token_hash=…&type=recovery), which opens the app with the same token
-// or lets the person choose a password there. Pure functions, no page code, so they're tested on
-// their own (tests/invite-model.test.mjs). The app reads the same link (SignInLink).
+// welcome page (welcome.html#token_hash=…&type=recovery), which iOS opens in the app when it's
+// installed (a Universal Link; the app's SignInLink reads it), or where the person chooses a
+// password. Pure functions, no page code, so they're tested on their own (tests/invite-model.test.mjs).
 
 const LINK_TYPES = ["recovery", "invite", "magiclink"];
 
@@ -21,10 +21,6 @@ export function linkToken(fragment) {
   const type = params.type || "recovery";
   return token && LINK_TYPES.includes(type) ? { token, type } : null;
 }
-
-/** The link that opens the Field Ready app with the same token. */
-export const appLink = ({ token, type }) =>
-  `fieldready://welcome#token_hash=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`;
 
 /** Plain words for a link Supabase turned down (used, expired, or never valid). */
 export function linkProblem(error) {

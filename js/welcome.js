@@ -1,14 +1,16 @@
 // The welcome page invitation and password emails open (welcome.html#token_hash=…&type=recovery).
-// On an iPhone or iPad it hands the link to the Field Ready app, which signs the person in and asks
-// for their password; anywhere, they can choose the password here instead. The token is used once:
-// whichever of the two uses it first, the other then says the link was already used.
+// On an iPhone or iPad with the Field Ready app, iOS opens the link in the app instead (a Universal
+// Link: .well-known/apple-app-site-association names the app), which signs the person in and asks for
+// their password. Here, anywhere, they choose the password on the page. The token is used once:
+// whichever uses it first, the other then says the link was already used. The page never hands the
+// token to the app itself (a fieldready:// link), because another app could claim that address.
 //
 // This page keeps no sign-in behind (a shared computer stays signed out), and never shows anyone
 // else's information.
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, APP_DOWNLOAD_URL } from "./config.js";
 import { escape } from "./ui.js";
-import { linkToken, appLink, linkProblem } from "./invite-model.js";
+import { linkToken, linkProblem } from "./invite-model.js";
 import { newPasswordProblem } from "./people-model.js";
 
 const root = document.getElementById("app");
@@ -51,8 +53,8 @@ function renderStart(message = "") {
   page("Choose your password", "Your Field Ready login is ready. Choose your password to start using it.", `
     ${onPhone ? `
       <div class="card welcome-app">
-        <a class="guide-button" href="${escape(appLink(link))}">Open in the Field Ready App</a>
-        <p>The app opens and asks for your new password.</p>
+        <p><strong>Have the Field Ready app?</strong> The email's button opens it on this phone. If it opened this page
+          instead, go back to the email, press and hold the button, and choose <strong>Open in “Field Ready”</strong>.</p>
         ${getTheApp()}
       </div>
       <p class="welcome-or">or choose it here</p>` : ""}
@@ -61,7 +63,7 @@ function renderStart(message = "") {
       <label>New password again <input name="confirmation" type="password" autocomplete="new-password" required></label>
       ${message ? `<p class="form-error" role="alert">${escape(message)}</p>` : ""}
       <button class="primary" type="submit">Save Password</button>
-      <p class="hint">At least 8 characters. You'll sign in to the Field Ready app with it.</p>
+      <p class="hint">At least 10 characters. You'll sign in to the Field Ready app with it.</p>
     </form>`);
   root.querySelector("[data-choose]").addEventListener("submit", choose);
 }
@@ -111,4 +113,4 @@ function renderFailed(message) {
     </div>`);
 }
 
-renderStart();
+if (!globalThis.fieldReadyFramed) renderStart();

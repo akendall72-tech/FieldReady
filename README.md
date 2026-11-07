@@ -34,8 +34,15 @@ with a finalized inspection can be archived but never deleted. The database enfo
   and network calls only to Field Ready's Supabase project. Anything new from elsewhere (a font, a
   library, another API) has to be added there, or it's blocked.
 - Libraries live in `vendor/`, checked against npm's checksum and pinned with an `integrity` hash.
-- GitHub Pages can't send security headers, and every Pages site under `akendall72-tech.github.io`
-  shares one browser origin (and so this site's stored sign-in). Give this site its own domain.
+- The site has its own address, https://fieldready.agri-barn.com (`CNAME`; the github.io address
+  redirects there), so it no longer shares a browser origin (and its stored sign-in) with other Pages
+  sites. Cloudflare's DNS record for it is DNS only.
+- GitHub Pages can't send security headers, so `js/frame-guard.js`, loaded first by `index.html` and
+  `welcome.html`, refuses to run inside another site's frame (clickjacking). Add it to any new page.
+- `.well-known/apple-app-site-association` lets iOS open `welcome.html` links in the Field Ready app (a
+  Universal Link), so no other app can catch a sign-in link. `.nojekyll` makes GitHub serve the folder.
+- Owners see a banner when the deployed `people` server function is older than `EXPECTED_FUNCTION_VERSION`
+  in `js/api.js`; change it whenever the function's `VERSION` changes.
 
 ## How the checklist editor works
 
@@ -150,6 +157,10 @@ The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/equipment-model.test.mjs
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/activity-model.test.mjs
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open
