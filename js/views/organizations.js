@@ -6,14 +6,14 @@
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import * as model from "../organizations-model.js";
-import { temporaryPassword } from "../people-model.js";
+import { inviteResult } from "../invite-model.js";
 
 export function mountOrganizations(root, { profile }) {
   const state = {
     organizations: [],
     adding: false,
     form: model.blankOrganization(),
-    /** A temporary password and the message to send, shown until dismissed. */
+    /** What happened to the last invitation or password link (and the link to send by hand), shown until dismissed. */
     handover: null,
     busy: false,
     loadError: null,
@@ -59,19 +59,33 @@ export function mountOrganizations(root, { profile }) {
   function handoverCard() {
     const handover = state.handover;
     if (!handover) return "";
-    const message = model.handoverMessage(handover, location.href);
-    return `
-      <div class="card handover" role="status">
-        <h2>${handover.kind === "reset" ? "New temporary password for" : "Send"} ${escape(handover.ownerName)}${handover.kind === "reset" ? "" : " their sign-in"}</h2>
-        <p class="password"><code>${escape(handover.password)}</code>
-          <button class="secondary" data-action="copy" data-copy="password">Copy</button></p>
-        <label>Message to send them
-          <textarea class="handover-message" rows="17" readonly>${escape(message)}</textarea></label>
-        <div class="actions">
-          <button class="secondary" data-action="copy" data-copy="message">Copy Message</button>
+    const reset = handover.kind === "reset";
+    if (handover.emailed) {
+      return `
+        <div class="card handover" role="status">
+          <h2>${reset ? "Password link sent to" : "Invitation sent to"} ${escape(handover.name)}</h2>
+          <p>Field Ready emailed <strong>${escape(handover.email)}</strong> a link to choose ${reset ? "a new" : "their"} password${reset ? "" : `,
+            then set up ${escape(handover.organizationName)} on the website`}. The link works once; if it expires, use
+            <strong>New Password Link</strong>.</p>
           <button class="link" data-action="dismiss-handover">Done</button>
-        </div>
-        <p class="hint">Neither is shown again once you close this. They choose their own password at their first sign-in.</p>
+        </div>`;
+    }
+    const message = handover.link ? model.handoverMessage(handover, location.href) : "";
+    return `
+      <div class="card handover warning" role="status">
+        <h2>Couldn't email ${escape(handover.name)}</h2>
+        <p>${escape(handover.problem)}</p>
+        ${handover.link ? `
+          <label>Send them this message yourself
+            <textarea class="handover-message" rows="14" readonly>${escape(message)}</textarea></label>
+          <div class="actions">
+            <button class="secondary" data-action="copy" data-copy="message">Copy Message</button>
+            <button class="secondary" data-action="copy" data-copy="link">Copy Link</button>
+            <button class="link" data-action="dismiss-handover">Done</button>
+          </div>
+          <p class="hint">The link works once and isn't shown again once you close this.</p>` : `
+          <p>${reset ? "" : "The organization and login are ready. "}Try <strong>New Password Link</strong> in a moment.</p>
+          <button class="link" data-action="dismiss-handover">Done</button>`}
       </div>`;
   }
 
@@ -88,8 +102,9 @@ export function mountOrganizations(root, { profile }) {
           <label>Owner's name <input data-new="ownerName" value="${escape(form.ownerName)}" autocomplete="off"></label>
           <label>Owner's email <input data-new="ownerEmail" type="email" value="${escape(form.ownerEmail)}" autocomplete="off"></label>
         </div>
-        <p class="hint">Create makes the organization, its first store, and the owner's login with a temporary password for you
-          to send them. It also loads the default option lists and the Guidance, Planter, and starter Machine checklists.
+        <p class="hint">Create makes the organization, its first store, and the owner's login, and emails the owner a link to
+          choose their password. It also loads the default option lists, the Guidance forms, and the Precision Planting and
+          starter Machine forms.
           The email can't already have a Field Ready login: each login belongs to one organization.</p>
         <p class="form-error" data-new-problems>${started ? escape(problems[0] ?? "") : ""}</p>
         <div class="actions">
@@ -123,7 +138,7 @@ export function mountOrganizations(root, { profile }) {
               <span class="role role-owner">Owner</span>
               <span><strong>${escape(owner.name || owner.email)}</strong> <span class="hint">${escape(owner.email)}</span></span>
               <span class="${owner.active ? "hint" : "access-off"}">${escape(model.ownerStatus(owner))}</span>
-              ${owner.id === profile.id ? "" : `<button class="link" data-action="reset-owner" data-id="${escape(owner.id)}" data-org="${escape(organization.id)}"${attr("disabled", state.busy)}>New Temporary Password</button>`}
+              ${owner.id === profile.id ? "" : `<button class="link" data-action="reset-owner" data-id="${escape(owner.id)}" data-org="${escape(organization.id)}"${attr("disabled", state.busy)}>New Password Link</button>`}
             </li>`).join("") || '<li class="hint">No owner yet.</li>'}
         </ol>
       </li>`;
@@ -152,15 +167,18 @@ export function mountOrganizations(root, { profile }) {
     if (model.newOrganizationProblems(form, state.organizations).length) return;
     const details = {
       name: form.name.trim(), storeName: form.storeName.trim(), ownerName: form.ownerName.trim(),
-      ownerEmail: form.ownerEmail.trim().toLowerCase(), password: temporaryPassword(),
+      ownerEmail: form.ownerEmail.trim().toLowerCase(),
     };
     return run(async () => {
-      await api.callPeople("createOrganization", details);
+      const answer = await api.callPeople("createOrganization", details);
       state.adding = false;
       state.form = model.blankOrganization();
-      state.handover = { kind: "new", organizationName: details.name, ownerName: details.ownerName, email: details.ownerEmail, password: details.password };
+      state.handover = {
+        ...inviteResult(answer, { kind: "new", name: details.ownerName, email: details.ownerEmail }),
+        organizationName: details.name, ownerName: details.ownerName,
+      };
       state.organizations = (await api.callPeople("listOrganizations", {})).organizations ?? [];
-      return `Created ${details.name} with its default options and checklists.`;
+      return `Created ${details.name} with its default options and forms.${state.handover.emailed ? ` Emailed ${details.ownerName}.` : ""}`;
     });
   }
 
@@ -169,13 +187,15 @@ export function mountOrganizations(root, { profile }) {
     const owner = organization?.owners.find((o) => o.id === ownerId);
     if (!owner) return;
     const name = owner.name || owner.email;
-    if (!confirm(`Make a new temporary password for ${name} (${organization.name})? Their current password stops working.`)) return;
-    const password = temporaryPassword();
+    if (!confirm(`Email ${name} (${organization.name}) a link to choose a new password? Their current password keeps working until they do.`)) return;
     return run(async () => {
-      await api.callPeople("resetOwnerPassword", { userId: owner.id, password });
-      state.handover = { kind: "reset", organizationName: organization.name, ownerName: name, email: owner.email, password };
+      const answer = await api.callPeople("resetOwnerPassword", { userId: owner.id });
+      state.handover = {
+        ...inviteResult(answer, { kind: "reset", name, email: owner.email }),
+        organizationName: organization.name, ownerName: name,
+      };
       state.organizations = (await api.callPeople("listOrganizations", {})).organizations ?? [];
-      return `Reset ${name}'s password.`;
+      return state.handover.emailed ? `Emailed ${name} a password link.` : `Couldn't email ${name}.`;
     });
   }
 
@@ -215,7 +235,7 @@ export function mountOrganizations(root, { profile }) {
       case "copy": {
         const text = element.dataset.copy === "message"
           ? model.handoverMessage(state.handover, location.href)
-          : state.handover.password;
+          : state.handover.link;
         try {
           await navigator.clipboard.writeText(text);
           element.textContent = "Copied";
@@ -231,9 +251,9 @@ export function mountOrganizations(root, { profile }) {
   root.addEventListener("click", onClick);
   load();
 
-  /** Whether it's fine to leave: nothing half-entered and no password still to send, or the person agrees. */
+  /** Whether it's fine to leave: nothing half-entered and no link still to send, or the person agrees. */
   return (silent = false) => {
-    const unfinished = (state.adding && Object.values(state.form).some((value) => value.trim())) || state.handover;
-    return !unfinished || (!silent && confirm("You have an unfinished organization or a temporary password you haven't sent. Leave this page?"));
+    const unfinished = (state.adding && Object.values(state.form).some((value) => value.trim())) || state.handover?.link;
+    return !unfinished || (!silent && confirm("You have an unfinished organization or a sign-in link you haven't sent. Leave this page?"));
   };
 }

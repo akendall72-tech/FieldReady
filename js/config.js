@@ -4,3 +4,7 @@
 
 export const SUPABASE_URL = "https://izkxngngadngzwpeezyb.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_scLJS7yDhLbUNbOKE_OWXg_ID8U015T";
+
+// Where people get the Field Ready app (the TestFlight public link now, the App Store later), shown
+// on the welcome page that invitation emails open. Empty: the page says to ask whoever invited them.
+export const APP_DOWNLOAD_URL = "";

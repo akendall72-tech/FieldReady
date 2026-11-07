@@ -3,12 +3,15 @@
 // Customers page.
 //
 // Owners manage everyone and every store. Admins manage the employees at their own store. New logins
-// and password resets go through the `people` server function (they need Supabase's secret key);
-// everything else goes straight to the database, whose access rules have the final say.
+// and password links go through the `people` server function (they need Supabase's secret key), which
+// emails the person a link to choose their password; everything else goes straight to the database,
+// whose access rules have the final say.
 
 import * as api from "../api.js";
 import { escape, attr, notice, formatDate } from "../ui.js";
 import * as model from "../people-model.js";
+import { inviteResult, inviteNotice } from "../invite-model.js";
+import { inviteCard, copyLink } from "../invite-card.js";
 import { canEditContacts, contactGroups, contactProblems } from "../customers-model.js";
 
 export function mountPeople(root, { profile }) {
@@ -36,7 +39,7 @@ export function mountPeople(root, { profile }) {
     edits: null,
     adding: false,
     newPerson: blankPerson(),
-    /** A temporary password to give someone, shown until dismissed. */
+    /** What happened to the last invitation or password link, shown until dismissed. */
     handover: null,
     busy: false,
     loadError: null,
@@ -220,19 +223,7 @@ export function mountPeople(root, { profile }) {
       </div>`;
   }
 
-  function handoverCard() {
-    const handover = state.handover;
-    if (!handover) return "";
-    return `
-      <div class="card handover" role="status">
-        <h2>${handover.kind === "reset" ? "New temporary password for" : "Give"} ${escape(handover.name)}${handover.kind === "reset" ? "" : " their temporary password"}</h2>
-        <p class="password"><code data-password>${escape(handover.password)}</code>
-          <button class="secondary" data-action="copy">Copy</button></p>
-        <p>They sign in to the Field Ready app with <strong>${escape(handover.email)}</strong> and this password, then change it
-          in Settings › Change Password. It isn't shown again once you close this.</p>
-        <button class="link" data-action="dismiss-handover">Done</button>
-      </div>`;
-  }
+  const handoverCard = () => inviteCard(state.handover);
 
   function roleOptions(selected, allowed) {
     return model.ROLES.filter((role) => allowed.includes(role.value))
@@ -265,10 +256,10 @@ export function mountPeople(root, { profile }) {
               : `<input value="${escape(storeName(profile.location_id))}" disabled>`}
           </label>
         </div>
-        <p class="hint">Adding them creates their login with a temporary password for you to give them.</p>
+        <p class="hint">Send Invite creates their login and emails them a link to choose their password.</p>
         <p class="form-error" data-new-problems>${person.email || person.full_name ? escape(problems[0] ?? "") : ""}</p>
         <div class="actions">
-          <button class="primary" type="submit" data-submit${attr("disabled", problems.length > 0 || state.busy)}>Add Person</button>
+          <button class="primary" type="submit" data-submit${attr("disabled", problems.length > 0 || state.busy)}>Send Invite</button>
           <button class="secondary" type="button" data-action="cancel-add">Cancel</button>
         </div>
       </form>`;
@@ -331,7 +322,7 @@ export function mountPeople(root, { profile }) {
         <div class="actions">
           <button class="primary" data-action="save-person" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Save</button>
           <button class="secondary" data-action="cancel-edit">Cancel</button>
-          ${can.password ? `<button class="link" data-action="reset-password" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Reset Password</button>` : ""}
+          ${can.password ? `<button class="link" data-action="reset-password" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Send Password Link</button>` : ""}
         </div>
       </li>`;
   }
@@ -505,13 +496,7 @@ export function mountPeople(root, { profile }) {
       case "dismiss-handover":
         state.handover = null;
         return render();
-      case "copy":
-        try {
-          await navigator.clipboard.writeText(state.handover.password);
-          element.textContent = "Copied";
-        } catch {
-          element.textContent = "Select and copy it";
-        }
+      case "copy-link": return copyLink(element, state.handover);
     }
   }
 
@@ -538,20 +523,19 @@ export function mountPeople(root, { profile }) {
   function addPerson() {
     const person = state.newPerson;
     if (model.newPersonProblems(person, viewer, state.everyone, state.allInvitations).length) return;
-    const password = model.temporaryPassword();
     const email = person.email.trim().toLowerCase();
     const name = person.full_name.trim();
     return run(async () => {
       const answer = await api.callPeople("create", {
-        email, fullName: name, role: person.role, locationId: person.role === "owner" ? null : person.location_id, password,
+        email, fullName: name, role: person.role, locationId: person.role === "owner" ? null : person.location_id,
       });
       state.adding = false;
       await fetchAll();
       if (answer?.status === "existing") {
         return `${name} already had a Field Ready login, so they can sign in now with their own password.`;
       }
-      state.handover = { kind: "new", name, email, password };
-      return `Added ${name}.`;
+      state.handover = inviteResult(answer, { kind: "new", name, email });
+      return inviteNotice(state.handover);
     });
   }
 
@@ -583,14 +567,13 @@ export function mountPeople(root, { profile }) {
 
   function resetPassword(person) {
     const name = person.full_name || person.email;
-    if (!confirm(`Make a new temporary password for ${name}? Their current password stops working.`)) return;
-    const password = model.temporaryPassword();
+    if (!confirm(`Email ${name} a link to choose a new password? Their current password keeps working until they do.`)) return;
     return run(async () => {
-      await api.callPeople("resetPassword", { userId: person.id, password });
+      const answer = await api.callPeople("resetPassword", { userId: person.id });
       state.editing = null;
       state.edits = null;
-      state.handover = { kind: "reset", name, email: person.email, password };
-      return `Reset ${name}'s password.`;
+      state.handover = inviteResult(answer, { kind: "reset", name, email: person.email });
+      return inviteNotice(state.handover);
     });
   }
 

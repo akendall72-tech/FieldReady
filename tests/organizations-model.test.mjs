@@ -40,19 +40,20 @@ check("owners with access off", ownerStatus({ active: false, waiting: true }) ==
 check("owners still on a temporary password", ownerStatus({ active: true, waiting: true }) === "Hasn't chosen a password yet");
 check("owners who chose a password", ownerStatus({ active: true, waiting: false }) === "Signed in");
 
-// The handover message
+// The handover message (sent by hand when the email didn't go)
 {
-  const details = { kind: "new", organizationName: "Prairie Implement", ownerName: "Pat Prairie", email: "pat@example.com", password: "Seed-K7QM-4XPR" };
+  const link = "https://example.github.io/FieldReady/welcome.html#token_hash=abc&type=recovery";
+  const details = { kind: "new", organizationName: "Prairie Implement", ownerName: "Pat Prairie", email: "pat@example.com", link };
   const base = "https://example.github.io/FieldReady/index.html?x=1#organizations";
   const message = handoverMessage(details, base);
   check("greets by first name", message.startsWith("Hi Pat,"));
-  check("names the organization", message.includes("Prairie Implement"));
-  check("gives the email and password", message.includes("Email: pat@example.com") && message.includes("Temporary password: Seed-K7QM-4XPR"));
-  check("links the website", message.includes("Sign in at https://example.github.io/FieldReady/ with:"));
+  check("names the organization and login", message.includes("Prairie Implement") && message.includes("Your login is pat@example.com."));
+  check("gives the link, not a password", message.includes(link) && !/password: /i.test(message));
+  check("links the website", message.includes("Sign in at https://example.github.io/FieldReady/ with"));
   check("links both guides", message.includes("https://example.github.io/FieldReady/admin-guide.html") && message.includes("https://example.github.io/FieldReady/guide.html"));
-  check("works from the folder address", handoverMessage(details, "https://example.github.io/FieldReady/#organizations").includes("Sign in at https://example.github.io/FieldReady/ with:"));
+  check("works from the folder address", handoverMessage(details, "https://example.github.io/FieldReady/#organizations").includes("Sign in at https://example.github.io/FieldReady/ with"));
   const reset = handoverMessage({ ...details, kind: "reset" }, base);
-  check("a reset says it's a new password", reset.includes("new temporary password") && reset.includes("Seed-K7QM-4XPR") && !reset.includes("Add your stores"));
+  check("a reset gives a new link", reset.includes("link to choose a new password") && reset.includes(link) && !reset.includes("Add your stores"));
 }
 
 // Choosing your own password

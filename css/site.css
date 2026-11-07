@@ -211,6 +211,15 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 .handover .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .handover-message { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
 
+/* ---------- welcome page (invitation emails) */
+
+.welcome-app { text-align: center; }
+.welcome-app .guide-button { display: block; margin: 4px 0 12px; }
+.welcome-app .hint { text-align: left; }
+.welcome-or { text-align: center; color: var(--text-secondary); margin: 4px 0 16px; }
+.invite-link { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.invite-link code { overflow-wrap: anywhere; font-size: 0.8rem; flex: 1; min-width: 0; }
+
 /* ---------- subscriptions */
 
 .service-list { list-style: none; margin: 8px 0 0; padding: 0; }

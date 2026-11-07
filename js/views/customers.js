@@ -9,7 +9,8 @@
 
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
-import { temporaryPassword } from "../people-model.js";
+import { inviteResult, inviteNotice } from "../invite-model.js";
+import { inviteCard, copyLink } from "../invite-card.js";
 import * as logins from "../customers-model.js";
 import * as model from "../equipment-model.js";
 import { mountMachine } from "./machine.js";
@@ -114,19 +115,8 @@ export function mountCustomers(root, { profile }) {
     return `<p class="callout">You add and edit customers and machines at ${store}. Owners and admins archive and delete them.</p>`;
   }
 
-  function handoverCard() {
-    const handover = state.handover;
-    if (!handover) return "";
-    return `
-      <div class="card handover" role="status">
-        <h2>${handover.kind === "reset" ? "New temporary password for" : "Give"} ${escape(handover.name)}${handover.kind === "reset" ? "" : " their temporary password"}</h2>
-        <p class="password"><code data-password>${escape(handover.password)}</code>
-          <button class="secondary" data-action="copy">Copy</button></p>
-        <p>They install Field Ready, sign in with <strong>${escape(handover.email)}</strong> and this password, and then choose
-          their own password. It isn't shown again once you close this.</p>
-        <button class="link" data-action="dismiss-handover">Done</button>
-      </div>`;
-  }
+  const handoverCard = () => inviteCard(state.handover);
+
 
   function customerList() {
     const shown = model.findCustomers(state.customers, state.machines, { search: state.search, store: state.store, archived: state.archived });
@@ -250,7 +240,7 @@ export function mountCustomers(root, { profile }) {
         ${manage ? `
           <span class="tools">
             <button class="link" data-action="toggle" data-id="${escape(login.id)}"${attr("disabled", state.busy)}>${login.active ? "Turn Off" : "Turn On"}</button>
-            <button class="link" data-action="reset-password" data-id="${escape(login.id)}"${attr("disabled", state.busy || !login.active)}>Reset Password</button>
+            <button class="link" data-action="reset-password" data-id="${escape(login.id)}"${attr("disabled", state.busy || !login.active)}>Send Password Link</button>
           </span>` : ""}
       </li>`;
   }
@@ -264,10 +254,11 @@ export function mountCustomers(root, { profile }) {
           <label>Name of the person signing in <input data-login="full_name" value="${escape(login.full_name)}" autocomplete="off"></label>
           <label>Their email <input data-login="email" type="email" value="${escape(login.email)}" autocomplete="off"></label>
         </div>
-        <p class="hint">Each person at the farm gets their own login. They'll see ${escape(customer.name)}'s equipment and completed inspections.</p>
+        <p class="hint">Each person at the farm gets their own login. They'll see ${escape(customer.name)}'s equipment and completed inspections.
+          Send Invite emails them a link to choose their password.</p>
         <p class="form-error" data-login-problems>${escape(problems[0] ?? "")}</p>
         <div class="actions">
-          <button class="primary" type="submit" data-submit${attr("disabled", problems.length > 0 || state.busy)}>Add Login</button>
+          <button class="primary" type="submit" data-submit${attr("disabled", problems.length > 0 || state.busy)}>Send Invite</button>
           <button class="secondary" type="button" data-action="cancel-add">Cancel</button>
         </div>
       </form>`;
@@ -389,13 +380,7 @@ export function mountCustomers(root, { profile }) {
       case "dismiss-handover":
         state.handover = null;
         return render();
-      case "copy":
-        try {
-          await navigator.clipboard.writeText(state.handover.password);
-          element.textContent = "Copied";
-        } catch {
-          element.textContent = "Select and copy it";
-        }
+      case "copy-link": return copyLink(element, state.handover);
     }
   }
 
@@ -507,17 +492,16 @@ export function mountCustomers(root, { profile }) {
   function addLogin(customer) {
     const login = state.login;
     if (!customer || logins.newLoginProblems(login, state.people, state.invitations).length) return;
-    const password = temporaryPassword();
     const email = login.email.trim().toLowerCase();
     const name = login.full_name.trim();
     return run(async () => {
-      const answer = await api.callPeople("create", { email, fullName: name, role: "customer", customerId: customer.id, password });
+      const answer = await api.callPeople("create", { email, fullName: name, role: "customer", customerId: customer.id });
       state.adding = null;
       state.login = null;
       await fetchAll();
       if (answer?.status === "existing") return `${email} already had a Field Ready login, so it now sees ${customer.name}'s equipment.`;
-      state.handover = { kind: "new", name, email, password };
-      return `Added a login for ${customer.name}.`;
+      state.handover = inviteResult(answer, { kind: "new", name, email });
+      return inviteNotice(state.handover);
     });
   }
 
@@ -533,13 +517,12 @@ export function mountCustomers(root, { profile }) {
 
   function resetPassword(login) {
     const name = login.full_name || login.email;
-    if (!confirm(`Make a new temporary password for ${name}? Their current password stops working.`)) return;
-    const password = temporaryPassword();
+    if (!confirm(`Email ${name} a link to choose a new password? Their current password keeps working until they do.`)) return;
     return run(async () => {
-      await api.callPeople("resetPassword", { userId: login.id, password });
+      const answer = await api.callPeople("resetPassword", { userId: login.id });
       await fetchAll();
-      state.handover = { kind: "reset", name, email: login.email, password };
-      return `Reset ${name}'s password.`;
+      state.handover = inviteResult(answer, { kind: "reset", name, email: login.email });
+      return inviteNotice(state.handover);
     });
   }
 

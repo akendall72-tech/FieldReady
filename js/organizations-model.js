@@ -44,33 +44,30 @@ export function ownerStatus(owner) {
 }
 
 /**
- * The message to send a new owner (or one given a new temporary password), with the website's
- * address and guides worked out from `base`, the page's own address.
+ * The message to send a new owner (or one sent a new password link) by hand, when the email didn't
+ * go, with the website's address and guides worked out from `base`, the page's own address.
  */
-export function handoverMessage({ kind, organizationName, ownerName, email, password }, base) {
+export function handoverMessage({ kind, organizationName, ownerName, email, link }, base) {
   // The folder the page is in: drop any #page or ?query, then the file name.
   const site = String(base).replace(/[?#].*$/, "").replace(/[^/]*$/, "");
   const firstName = clean(ownerName).split(/\s+/)[0] || clean(ownerName);
-  const signIn = [`   Email: ${email}`, `   Temporary password: ${password}`];
   if (kind === "reset") {
     return [
       `Hi ${firstName},`,
       "",
-      `Here's a new temporary password for Field Ready (${organizationName}). Sign in at ${site} or in the Field Ready app with:`,
-      ...signIn,
-      "",
-      "It asks you to choose your own password.",
+      `Here's a link to choose a new password for your Field Ready login (${email}, ${organizationName}). It works once:`,
+      link,
     ].join("\n");
   }
   return [
     `Hi ${firstName},`,
     "",
-    `Your Field Ready organization, ${organizationName}, is ready, and you're its owner.`,
+    `Your Field Ready organization, ${organizationName}, is ready, and you're its owner. Your login is ${email}.`,
     "",
-    `1. Sign in at ${site} with:`,
-    ...signIn,
-    "2. Choose your own password when it asks.",
-    "3. Add your stores, people, and customers. Your option lists and checklists are already loaded; change them to suit your shop.",
+    "1. Choose your password with this link (it works once):",
+    `   ${link}`,
+    `2. Sign in at ${site} with your email and that password.`,
+    "3. Add your stores, people, and customers. Your option lists and forms are already loaded; change them to suit your shop.",
     "",
     "You can also sign in to the Field Ready app with the same email and password.",
     "",
