@@ -5,7 +5,7 @@
 // two-step sign-in on enters their code before anything loads (the database shows them nothing
 // without it). Everyone on staff has an Account page to turn two-step sign-in on or off.
 
-import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe, assuranceLevel, listFactors, verifyCode, functionVersion, EXPECTED_FUNCTION_VERSION } from "./api.js";
+import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe, assuranceLevel, listFactors, verifyCode, functionVersion, EXPECTED_FUNCTION_VERSION, offersFunctionVersion, EXPECTED_OFFERS_VERSION } from "./api.js";
 import { cleanCode, needsCode, verifiedFactor, WRONG_CODE, NOT_A_CODE } from "./two-step-model.js";
 import { escape } from "./ui.js";
 import { newPasswordProblem } from "./people-model.js";
@@ -18,6 +18,7 @@ import { mountSubscriptions } from "./views/subscriptions.js";
 import { mountAccount } from "./views/account.js";
 import { mountActivity } from "./views/activity.js";
 import { mountFarm } from "./views/farm.js";
+import { mountPromotions } from "./views/promotions.js";
 
 const root = document.getElementById("app");
 
@@ -32,6 +33,7 @@ const PAGES = [
   { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS },
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
+  { id: "promotions", label: "Promotions", mount: mountPromotions, roles: STAFF },
   { id: "activity", label: "Activity", mount: mountActivity, roles: ["owner"] },
   { id: "organizations", label: "Organizations", mount: mountOrganizations, roles: STAFF, platformOnly: true },
   { id: "account", label: "Account", mount: mountAccount, roles: EVERYONE },
@@ -205,22 +207,31 @@ function renderShell() {
   checkFunctionVersion(profile);
 }
 
-const versionBanner = () => `<p class="callout version-banner" role="status">The people server function in Supabase is older than this
-  website, so inviting people and sending password links may not work as described. Redeploy it: supabase/README.md, step 8.</p>`;
+const versionBanner = () => `<p class="callout version-banner" role="status">${current.functionOutdated === "offers"
+  ? "The offers server function in Supabase is missing or older than this website, so customers' I'm interested may not reach you. Deploy it: supabase/README.md, Promotions."
+  : "The people server function in Supabase is older than this website, so inviting people and sending password links may not work as described. Redeploy it: supabase/README.md, step 8."}</p>`;
 
-/** Once per sign-in, for owners and the platform admin: does the deployed people function match this website? */
+/**
+ * Once per sign-in, for owners, promotions managers, and the platform admin: do the deployed server
+ * functions (people, then offers) match this website?
+ */
 async function checkFunctionVersion(profile) {
-  if (current.versionChecked === profile.id || (profile.role !== "owner" && !profile.isPlatformAdmin)) return;
+  const promotions = profile.role === "owner" || profile.can_manage_promotions === true;
+  if (current.versionChecked === profile.id || (profile.role !== "owner" && !profile.isPlatformAdmin && !promotions)) return;
   current.versionChecked = profile.id;
-  let version;
   try {
-    version = await functionVersion();
+    if (profile.role === "owner" || profile.isPlatformAdmin) {
+      const version = await functionVersion();
+      if (version === null || version < EXPECTED_FUNCTION_VERSION) current.functionOutdated = "people";
+    }
+    if (!current.functionOutdated && promotions) {
+      const version = await offersFunctionVersion();
+      if (version === null || version < EXPECTED_OFFERS_VERSION) current.functionOutdated = "offers";
+    }
   } catch {
-    return; // Unreachable or refused: the pages that use it say so themselves.
+    return; // Unreachable or refused: the pages that use them say so themselves.
   }
-  if (version !== null && version >= EXPECTED_FUNCTION_VERSION) return;
-  current.functionOutdated = true;
-  if (current.profile?.id !== profile.id || root.querySelector(".version-banner")) return;
+  if (!current.functionOutdated || current.profile?.id !== profile.id || root.querySelector(".version-banner")) return;
   root.querySelector("nav.tabs")?.insertAdjacentHTML("afterend", versionBanner());
 }
 

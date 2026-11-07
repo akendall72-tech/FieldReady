@@ -21,7 +21,8 @@ check("Emails covers sent and failed", groupFilter("emails") === "action.like.em
 const actions = ["person.changed", "person.access_off", "person.access_on", "person.removed", "login.created", "login.deleted", "two_step.reset",
   "email.sent", "email.failed", "store.added", "store.renamed", "store.closed", "store.reopened", "store.removed", "contact.added",
   "contact.changed", "contact.removed", "organization.created", "organization.renamed", "organization.changed", "form.published", "form.retired",
-  "option.added", "option.changed", "option.removed", "customer.deleted", "machine.deleted", "inspection.deleted"];
+  "option.added", "option.changed", "option.removed", "customer.deleted", "machine.deleted", "inspection.deleted",
+  "promotion.published", "promotion.stopped", "lead.new", "lead.contacted", "lead.sold", "lead.notInterested"];
 const groupsOf = (action) => ACTIVITY_GROUPS.filter((g) => g.prefixes.some((p) => action.startsWith(p))).map((g) => g.id);
 check("every action the database and the function record has exactly one filter", actions.every((action) => groupsOf(action).length === 1));
 
@@ -41,6 +42,11 @@ check("a renamed store", say("store.renamed", "South", { name: ["Old South", "So
 check("a store contact", say("contact.added", "Sam", { role: "ptx_specialist", store: "North" }) === "added Sam as a store contact (PTx specialist, North)");
 check("customer inspections turned off", say("organization.changed", "Agri-Service", { customer_inspections: [true, false] }) === "turned customer inspections off");
 check("…and on", say("organization.changed", "Agri-Service", { customer_inspections: [false, true] }) === "turned customer inspections on");
+check("the promotions permission", say("person.changed", "Sam", { promotions: [false, true] }) === "changed Sam: can now manage promotions");
+check("a published offer", say("promotion.published", "Renew early", { ends: "2026-12-10" }) === "published the offer Renew early (until 2026-12-10)");
+check("a new lead", say("lead.new", "Hillcrest Farms", { offer: "Renew early", machine: "Fendt 724" }) === "tapped I'm interested in Renew early for the Fendt 724 (Hillcrest Farms)");
+check("a lead sold", say("lead.sold", "Hillcrest Farms", { offer: "Renew early" }) === "marked Hillcrest Farms's interest in Renew early as sold");
+check("a lead email", say("email.sent", "Hillcrest Farms", { kind: "lead", email: "sam@x.test" }) === "emailed the store about Hillcrest Farms's interest (sam@x.test)");
 check("a published form", say("form.published", "PTx guidance inspection 1.1") === "published the PTx guidance inspection 1.1 form");
 check("an option added names its list", say("option.added", "Trimble RTX", { list: "correction_service" }) === "added Trimble RTX to correction services");
 check("an option renamed and hidden", say("option.changed", "Trimble RTX", { list: "correction_service", label: ["RTX", "Trimble RTX"], shown: [true, false] })

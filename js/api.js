@@ -44,7 +44,7 @@ export async function signOut() {
 export async function loadProfile(userId) {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, organization_id, customer_id, must_change_password, organizations(name), locations(name), customers!profiles_customer_fkey(name, location_id)")
+    .select("id, full_name, email, role, active, location_id, organization_id, customer_id, must_change_password, can_manage_promotions, organizations(name), locations(name), customers!profiles_customer_fkey(name, location_id)")
     .eq("id", userId)
     .maybeSingle());
 }
@@ -216,7 +216,7 @@ export async function setChecklistStatus(templateId, from, to) {
 export async function loadPeople() {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, updated_at, created_at")
+    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, updated_at, created_at")
     .order("full_name", { ascending: true }));
 }
 
@@ -316,6 +316,65 @@ export async function functionVersion() {
     if (/unknown action/i.test(error?.message ?? "")) return null;
     throw error;
   }
+}
+
+// ---------------------------------------------------------------- promotions
+
+/** The `offers` server function this website expects: its VERSION (supabase/functions/offers/index.ts). */
+export const EXPECTED_OFFERS_VERSION = "2026-11-10";
+
+/** The deployed offers function's version, or null when it isn't deployed (or predates the check). */
+export async function offersFunctionVersion() {
+  const { data, error } = await supabase.functions.invoke("offers", { body: { action: "version" } });
+  if (!error) return data?.version ?? null;
+  if (error.context?.status === 404 || error.name === "FunctionsFetchError" || error.name === "FunctionsHttpError") return null;
+  throw error;
+}
+
+/** Every offer in the organization (staff read them all; customers never do). */
+export async function loadPromotions() {
+  return unwrap(await supabase.from("promotions").select("*").order("created_at", { ascending: false }));
+}
+
+/** Saves a draft (or adds a new one); returns the saved offer. */
+export async function savePromotion(organizationId, offer, values) {
+  const query = offer.id
+    ? supabase.from("promotions").update(values).eq("id", offer.id).select("*")
+    : supabase.from("promotions").insert({ ...values, organization_id: organizationId }).select("*");
+  const rows = unwrap(await query);
+  if (!rows.length) throw new Error("That wasn't saved. Only owners and promotions managers can change offers.");
+  return rows[0];
+}
+
+/** Publishes a draft ("live") or stops a published offer ("stopped"). */
+export async function setPromotionStatus(id, status) {
+  const rows = unwrap(await supabase.from("promotions").update({ status }).eq("id", id).select("id"));
+  if (!rows.length) throw new Error("That wasn't saved. Only owners and promotions managers can change offers.");
+}
+
+export async function deletePromotion(id) {
+  const rows = unwrap(await supabase.from("promotions").delete().eq("id", id).select("id"));
+  if (!rows.length) throw new Error("Only drafts can be deleted.");
+}
+
+/** The customers and machines these conditions reach now ("See who"). */
+export async function offerAudience(rules, stores) {
+  return unwrap(await supabase.rpc("offer_audience", { rules, stores: stores ?? [] }));
+}
+
+/** How customers responded to offers (for results). */
+export async function loadOfferResponses() {
+  return unwrap(await supabase.from("promotion_responses").select("promotion_id, seen_at, dismissed_at, interested_at, lead_status"));
+}
+
+/** Leads with the customer's details, newest first (owners and promotions managers: every store). */
+export async function loadLeads() {
+  return unwrap(await supabase.rpc("promotion_leads"));
+}
+
+export async function saveLead(id, changes) {
+  const rows = unwrap(await supabase.from("promotion_responses").update(changes).eq("id", id).select("id"));
+  if (!rows.length) throw new Error("That wasn't saved. Your access may not include that store.");
 }
 
 // ---------------------------------------------------------------- activity log (owners)

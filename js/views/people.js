@@ -292,6 +292,7 @@ export function mountPeople(root, { profile }) {
         </div>
         <div class="person-meta">
           <span class="role role-${escape(person.role)}">${escape(model.roleLabel(person.role))}</span>
+          ${person.can_manage_promotions && person.role !== "owner" ? '<span class="tag">Promotions</span>' : ""}
           <span>${escape(person.role === "owner" ? "Every store" : storeName(person.location_id))}</span>
           ${person.active ? "" : '<span class="access-off">Access off</span>'}
         </div>
@@ -316,6 +317,9 @@ export function mountPeople(root, { profile }) {
           </label>
         </div>
         <label class="check"><input type="checkbox" data-edit="active"${attr("checked", edits.active)}${attr("disabled", !can.access)}> Can sign in to Field Ready</label>
+        ${isOwner && !isOwnerRole && person.role !== "customer" && person.id !== viewer.id ? `
+          <label class="check"><input type="checkbox" data-edit="can_manage_promotions"${attr("checked", edits.can_manage_promotions)}> Can manage promotions</label>
+          <p class="hint">Writes and publishes offers for customers on the Promotions page, and sees every store's leads. Owners always can.</p>` : ""}
         ${person.id === viewer.id ? '<p class="hint">You can\'t turn off your own access.</p>' : ""}
         ${model.isLastOwner(person, state.people) ? '<p class="hint">The only owner stays an owner with access. Make someone else an owner first.</p>' : ""}
         <p class="form-error" data-edit-problem></p>
@@ -471,7 +475,8 @@ export function mountPeople(root, { profile }) {
         return render();
       case "edit":
         state.editing = person.id;
-        state.edits = { full_name: person.full_name, role: person.role, location_id: person.location_id, active: person.active };
+        state.edits = { full_name: person.full_name, role: person.role, location_id: person.location_id, active: person.active,
+          can_manage_promotions: person.can_manage_promotions === true };
         return render();
       case "cancel-edit":
         state.editing = null;
@@ -549,6 +554,9 @@ export function mountPeople(root, { profile }) {
     const location = edits.role === "owner" ? null : edits.location_id || null;
     if (location !== person.location_id) changes.location_id = location;
     if (edits.active !== person.active) changes.active = edits.active;
+    if (isOwner && edits.role !== "owner" && edits.can_manage_promotions !== (person.can_manage_promotions === true)) {
+      changes.can_manage_promotions = edits.can_manage_promotions;
+    }
     if (Object.keys(changes).length === 0) {
       state.editing = null;
       return render();

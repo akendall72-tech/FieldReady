@@ -41,6 +41,8 @@ with a finalized inspection can be archived but never deleted. The database enfo
   `welcome.html`, refuses to run inside another site's frame (clickjacking). Add it to any new page.
 - `.well-known/apple-app-site-association` lets iOS open `welcome.html` links in the Field Ready app (a
   Universal Link), so no other app can catch a sign-in link. `.nojekyll` makes GitHub serve the folder.
+- Promotions (`js/views/promotions.js`, `js/promotions-model.js`): the conditions match the database's
+  `private.condition_matches`; change both together. Customers never read offers from here.
 - Owners see a banner when the deployed `people` server function is older than `EXPECTED_FUNCTION_VERSION`
   in `js/api.js`; change it whenever the function's `VERSION` changes.
 
@@ -161,6 +163,10 @@ The rules run in the JavaScript engine built into macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/activity-model.test.mjs
+```
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m tests/promotions-model.test.mjs
 ```
 
 To try the site locally, serve this folder (for example `python3 -m http.server 8765`) and open

@@ -12,6 +12,7 @@ export const ACTIVITY_GROUPS = [
   { id: "forms", label: "Forms", prefixes: ["form."] },
   { id: "options", label: "Options", prefixes: ["option."] },
   { id: "records", label: "Records", prefixes: ["customer.", "machine.", "inspection."] },
+  { id: "promotions", label: "Promotions", prefixes: ["promotion.", "lead."] },
   { id: "emails", label: "Emails", prefixes: ["email."] },
 ];
 
@@ -46,7 +47,10 @@ export function describeActivity(entry) {
   const email = d.email && d.email !== subject ? ` (${d.email})` : "";
   switch (entry.action) {
     case "person.changed": {
-      const what = changes(d, { role: "role", store: "store", name: "name" });
+      const parts = [changes(d, { role: "role", store: "store", name: "name" })];
+      const promotions = pair(d.promotions);
+      if (promotions) parts.push(promotions[1] ? "can now manage promotions" : "can no longer manage promotions");
+      const what = parts.filter(Boolean).join("; ");
       return `changed ${subject}${what ? `: ${what}` : ""}`;
     }
     case "person.access_off": return `turned off ${subject}'s access`;
@@ -58,7 +62,9 @@ export function describeActivity(entry) {
     }
     case "login.deleted": return `deleted ${subject}'s login${email}`;
     case "two_step.reset": return `reset ${subject}'s two-step sign-in`;
-    case "email.sent": return d.kind === "reset" ? `emailed ${subject} a password link${email}` : `emailed ${subject} an invitation${email}`;
+    case "email.sent":
+      if (d.kind === "lead") return `emailed the store about ${subject}'s interest${email}`;
+      return d.kind === "reset" ? `emailed ${subject} a password link${email}` : `emailed ${subject} an invitation${email}`;
     case "email.failed": return `couldn't email ${subject}${email}${d.linkShown ? "; the link was shown to copy" : ""}`;
     case "store.added": return `added the store ${subject}`;
     case "store.renamed": return `renamed a store: ${changes(d, { name: "" }).trim() || subject}`;
@@ -87,6 +93,12 @@ export function describeActivity(entry) {
       if (d.settings) parts.push("settings changed");
       return `changed ${subject} in ${listName(d.list)}${parts.length ? `: ${parts.join(", ")}` : ""}`;
     }
+    case "promotion.published": return `published the offer ${subject}${d.ends ? ` (until ${d.ends})` : ""}`;
+    case "promotion.stopped": return `stopped the offer ${subject}`;
+    case "lead.new": return `tapped I'm interested in ${d.offer ?? "an offer"}${d.machine ? ` for the ${d.machine}` : ""}${entry.subject ? ` (${entry.subject})` : ""}`;
+    case "lead.contacted": return `marked ${subject}'s interest in ${d.offer ?? "an offer"} as contacted`;
+    case "lead.sold": return `marked ${subject}'s interest in ${d.offer ?? "an offer"} as sold`;
+    case "lead.notInterested": return `marked ${subject} not interested in ${d.offer ?? "an offer"}`;
     case "customer.deleted": return `deleted the customer ${subject}`;
     case "machine.deleted": return `deleted the machine ${subject}`;
     case "inspection.deleted": return `deleted an inspection${entry.subject ? ` (${entry.subject})` : ""}`;
