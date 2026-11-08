@@ -35,7 +35,7 @@ export const CONDITIONS = [
     { op: "expires_within", label: "expires within" }, { op: "expired", label: "has expired" }, { op: "none", label: "none recorded" },
   ] },
   { field: "inspection", label: "Inspection", ops: [
-    { op: "finding", label: "the last one had a failed check" }, { op: "none_for_months", label: "none in the last" },
+    { op: "finding", label: "the last one had a failed check or a recommendation" }, { op: "none_for_months", label: "none in the last" },
   ] },
 ];
 
@@ -108,7 +108,7 @@ export function describeCondition(condition, rows = []) {
       return "No correction subscription recorded";
     case "inspection":
       if (condition.op === "none_for_months") return `No inspection in the last ${v} months`;
-      return "The last inspection had a failed check";
+      return "The last inspection had a failed check or a recommendation";
     default: return "Unknown condition";
   }
 }

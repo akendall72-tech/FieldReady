@@ -42,6 +42,7 @@ check("an open range", describeCondition({ field: "model_year", op: "between", v
 check("a component with a model", describeCondition({ field: "component", op: "has", value: { kind: "display", model: "750" } }, rows) === "Has a display whose model contains “750”");
 check("a feature not installed", describeCondition({ field: "feature", op: "not_installed", value: "sectionControl" }, rows) === "Section control isn't installed");
 check("a renewal window", describeCondition({ field: "subscription", op: "expires_within", value: 60 }) === "Correction subscription expires within 60 days");
+check("a finding covers fails and recommendations", describeCondition({ field: "inspection", op: "finding", value: null }) === "The last inspection had a failed check or a recommendation");
 check("no recent inspection", describeCondition({ field: "inspection", op: "none_for_months", value: 12 }) === "No inspection in the last 12 months");
 
 // Problems
