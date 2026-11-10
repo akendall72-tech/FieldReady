@@ -362,6 +362,11 @@ export async function offerAudience(rules, stores) {
   return unwrap(await supabase.rpc("offer_audience", { rules, stores: stores ?? [] }));
 }
 
+/** Customers the offer editor can choose: every store's for owners and promotions managers, else your store's. */
+export async function offerCustomers() {
+  return unwrap(await supabase.rpc("offer_customers"));
+}
+
 /** How customers responded to offers (for results). */
 export async function loadOfferResponses() {
   return unwrap(await supabase.from("promotion_responses").select("promotion_id, seen_at, dismissed_at, interested_at, lead_status"));

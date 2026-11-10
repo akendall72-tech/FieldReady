@@ -5,7 +5,7 @@
 
 import {
   CONDITIONS, blankCondition, withOp, describeCondition, conditionProblem, blankOffer, addDays, offerProblems, cleanOffer,
-  offerState, resultsFor, audienceSummary, storesWords, isOpenLead, leadStatusLabel, valueKind,
+  offerState, resultsFor, audienceSummary, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
 } from "../js/promotions-model.js";
 
 let passed = 0;
@@ -27,7 +27,7 @@ check("every condition has a starting value of its own kind", CONDITIONS.every((
   return blank.field === c.field && blank.op === c.ops[0].op;
 }));
 check("the database's fields, one each", CONDITIONS.map((c) => c.field).join() ===
-  "equipment_type,manufacturer,model_year,guidance_system,steering,correction,receiver_level,component,feature,subscription,inspection");
+  "customer,equipment_type,manufacturer,model_year,guidance_system,steering,correction,receiver_level,component,feature,subscription,inspection");
 check("expires within takes days", valueKind({ field: "subscription", op: "expires_within" }).unit === "days");
 check("…none takes nothing", valueKind({ field: "subscription", op: "none" }).type === "none");
 check("changing to an op with another kind of value resets it", withOp(blankCondition("subscription"), "none").value === null);
@@ -44,6 +44,23 @@ check("a feature not installed", describeCondition({ field: "feature", op: "not_
 check("a renewal window", describeCondition({ field: "subscription", op: "expires_within", value: 60 }) === "Correction subscription expires within 60 days");
 check("a finding covers fails and recommendations", describeCondition({ field: "inspection", op: "finding", value: null }) === "The last inspection had a failed check or a recommendation");
 check("no recent inspection", describeCondition({ field: "inspection", op: "none_for_months", value: 12 }) === "No inspection in the last 12 months");
+
+// Chosen customers
+const customers = [
+  { id: "a", name: "Hillcrest Farms", store_name: "North" }, { id: "b", name: "NT Farm", store_name: "South" },
+  { id: "c", name: "Big Farm Co", store_name: "North" }, { id: "d", name: "Farmstead LLC", store_name: "North" },
+];
+check("a new customer condition starts with nobody chosen", JSON.stringify(blankCondition("customer").value) === "[]");
+check("chosen customers by name", describeCondition({ field: "customer", op: "in", value: ["a", "b"] }, [], customers) === "Customer is Hillcrest Farms or NT Farm");
+check("customers this person can't see aren't named", describeCondition({ field: "customer", op: "in", value: ["a", "x", "y"] }, [], customers) === "Customer is Hillcrest Farms or 2 other customers"
+  && describeCondition({ field: "customer", op: "in", value: ["x"] }, [], customers) === "Customer is 1 other customer");
+check("…and a name only for one on the list", customerName(customers, "b") === "NT Farm" && customerName(customers, "x") === null);
+check("a customer condition needs someone chosen", conditionProblem({ field: "customer", op: "in", value: [] }) === "Customer: choose at least one."
+  && conditionProblem({ field: "customer", op: "in", value: ["a"] }) === null);
+check("finding customers matches part of a name, either case, starts first", findCustomers(customers, "FARM").map((c) => c.id).join() === "d,a,b,c");
+check("…leaves out the chosen ones", findCustomers(customers, "farm", ["a", "d"]).map((c) => c.id).join() === "b,c");
+check("…stops at the limit", findCustomers(customers, "farm", [], 2).length === 2);
+check("…and shows nothing until something's typed", findCustomers(customers, "  ").length === 0);
 
 // Problems
 check("a list needs a choice", conditionProblem({ field: "steering", op: "in", value: [] }) === "Steering: choose at least one.");

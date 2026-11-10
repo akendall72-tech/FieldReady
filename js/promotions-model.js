@@ -1,12 +1,14 @@
 // Promotions: the conditions an offer can set, how they read, and what makes an offer ready to
 // publish. Pure functions, no page code, so they're tested on their own
 // (tests/promotions-model.test.mjs). The database checks the same conditions
-// (private.condition_matches in migrations/20261110100000_promotions.sql); keep the two together.
+// (private.condition_matches, last in migrations/20261114100000_offer_customer_condition.sql); keep
+// the two together.
 
 import { labelFor } from "./equipment-model.js";
 
 /** What a condition's value is, by field and op. */
 const VALUE = {
+  customer: () => ({ type: "customers" }),
   equipment_type: () => ({ type: "list", list: "equipment_type" }),
   manufacturer: () => ({ type: "text", placeholder: "Fendt" }),
   model_year: () => ({ type: "range" }),
@@ -22,6 +24,7 @@ const VALUE = {
 
 /** The conditions owners can choose, in the order the picker shows them. */
 export const CONDITIONS = [
+  { field: "customer", label: "Customer", ops: [{ op: "in", label: "is" }] },
   { field: "equipment_type", label: "Equipment type", ops: [{ op: "in", label: "is" }] },
   { field: "manufacturer", label: "Make", ops: [{ op: "contains", label: "contains" }] },
   { field: "model_year", label: "Model year", ops: [{ op: "between", label: "is between" }] },
@@ -53,6 +56,7 @@ export function blankCondition(field = "equipment_type") {
 function startingValue(kind) {
   switch (kind.type) {
     case "list": return [];
+    case "customers": return [];
     case "text": return "";
     case "range": return { from: null, to: null };
     case "component": return { kind: "display", model: "" };
@@ -69,16 +73,34 @@ export function withOp(condition, op) {
   return { ...condition, op, value: same ? condition.value : startingValue(kind) };
 }
 
-const listWords = (rows, list, values) => {
-  const labels = (values ?? []).map((value) => labelFor(rows, list, value));
-  if (labels.length <= 1) return labels[0] ?? "…";
-  return `${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}`;
-};
+const joinOr = (words) => (words.length <= 1 ? words[0] ?? "…" : `${words.slice(0, -1).join(", ")} or ${words.at(-1)}`);
+const listWords = (rows, list, values) => joinOr((values ?? []).map((value) => labelFor(rows, list, value)));
 
-/** One condition in plain words: "Equipment type is Planter or Sprayer". */
-export function describeCondition(condition, rows = []) {
+/** A chosen customer's name, from offer_customers' rows; null for one this person can't see or that's gone. */
+export const customerName = (customers, id) => customers.find((c) => c.id === id)?.name ?? null;
+
+/** Customers whose name contains the words, not already chosen; names that start with them first. */
+export function findCustomers(customers, query, chosen = [], limit = 8) {
+  const words = String(query ?? "").trim().toLowerCase();
+  if (!words) return [];
+  const name = (c) => String(c.name ?? "").toLowerCase();
+  return customers
+    .filter((c) => !chosen.includes(c.id) && name(c).includes(words))
+    .sort((a, b) => Number(name(b).startsWith(words)) - Number(name(a).startsWith(words)))
+    .slice(0, limit);
+}
+
+/** One condition in plain words: "Equipment type is Planter or Sprayer". `customers` names chosen customers. */
+export function describeCondition(condition, rows = [], customers = []) {
   const v = condition.value;
   switch (condition.field) {
+    case "customer": {
+      const ids = Array.isArray(v) ? v : [];
+      if (!ids.length) return "Customer is …";
+      const names = ids.map((id) => customerName(customers, id)).filter(Boolean);
+      const others = ids.length - names.length;
+      return `Customer is ${joinOr(others ? [...names, others === 1 ? "1 other customer" : `${others} other customers`] : names)}`;
+    }
     case "equipment_type": return `Equipment type is ${listWords(rows, "equipment_type", v)}`;
     case "manufacturer": return `Make contains “${String(v ?? "").trim() || "…"}”`;
     case "model_year": {
@@ -118,6 +140,7 @@ export function conditionProblem(condition) {
   const v = condition.value;
   switch (valueKind(condition).type) {
     case "list": return Array.isArray(v) && v.length ? null : `${conditionInfo(condition.field)?.label ?? "Condition"}: choose at least one.`;
+    case "customers": return Array.isArray(v) && v.length ? null : "Customer: choose at least one.";
     case "text": return String(v ?? "").trim() ? null : "Make: enter part of the name.";
     case "one": return v ? null : "Feature: choose one.";
     case "range": {

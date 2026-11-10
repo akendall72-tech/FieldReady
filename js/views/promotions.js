@@ -20,6 +20,10 @@ export function mountPromotions(root, { profile }) {
     leads: [],
     stores: [],
     options: [],
+    /** Customers to choose from and to name in conditions (offer_customers). */
+    customers: [],
+    /** What's typed in each customer condition's search box, by condition. */
+    customerQuery: {},
     /** The offer open in the editor or viewer ("new" while adding one), and its working copy. */
     open: null,
     draft: null,
@@ -33,10 +37,12 @@ export function mountPromotions(root, { profile }) {
 
   async function load() {
     try {
-      const [offers, responses, leads, stores, options] = await Promise.all([
+      const [offers, responses, leads, stores, options, customers] = await Promise.all([
         api.loadPromotions(), api.loadOfferResponses(), api.loadLeads(), api.loadStores(), api.loadOptionRows(),
+        // Offers still open without it (until the database has offer_customers, chosen customers aren't named).
+        api.offerCustomers().catch(() => []),
       ]);
-      Object.assign(state, { offers, responses, leads, stores: stores.filter((s) => s.active), options, loadError: null });
+      Object.assign(state, { offers, responses, leads, stores: stores.filter((s) => s.active), options, customers, loadError: null });
     } catch (error) {
       state.loadError = api.describe(error);
     }
@@ -87,7 +93,7 @@ export function mountPromotions(root, { profile }) {
   function offerRow(offer) {
     const r = model.resultsFor(state.responses, offer.id);
     const status = model.offerState(offer, today());
-    const conditions = offer.rules.length ? offer.rules.map((c) => model.describeCondition(c, state.options)).join(" · ") : "Every customer machine";
+    const conditions = offer.rules.length ? offer.rules.map((c) => model.describeCondition(c, state.options, state.customers)).join(" · ") : "Every customer machine";
     return `
       <li>
         <button class="list-row" data-action="open" data-id="${escape(offer.id)}">
@@ -147,7 +153,7 @@ export function mountPromotions(root, { profile }) {
         </select>
         ${valueControl(condition, index, off)}
         ${can ? `<button class="link" data-action="remove-condition" data-index="${index}">Remove</button>` : ""}
-        <p class="hint condition-words">${escape(model.describeCondition(condition, state.options))}</p>
+        <p class="hint condition-words">${escape(model.describeCondition(condition, state.options, state.customers))}</p>
       </li>`;
   }
 
@@ -155,6 +161,17 @@ export function mountPromotions(root, { profile }) {
     const kind = model.valueKind(condition);
     const v = condition.value;
     switch (kind.type) {
+      case "customers": {
+        const chosen = Array.isArray(v) ? v : [];
+        return `<div class="customer-picker">
+          ${chosen.length ? `<span class="chips">${chosen.map((id) => {
+            const name = model.customerName(state.customers, id) ?? "Another customer";
+            return `<span class="chip">${escape(name)}${off ? "" : ` <button class="link" data-action="unpick-customer" data-index="${index}" data-id="${escape(id)}" aria-label="Remove ${escape(name)}">✕</button>`}</span>`;
+          }).join("")}</span>` : ""}
+          ${off ? "" : `<input type="search" data-cond="${index}" data-part="customer-search" placeholder="Find a customer by name" value="${escape(state.customerQuery[index] ?? "")}" aria-label="Find a customer">
+          <ul class="customer-results" data-results="${index}">${customerResults(index, chosen)}</ul>`}
+        </div>`;
+      }
       case "list":
         return `<span class="condition-choices">${choices(state.options, kind.list).map((o) => `
           <label class="check"><input type="checkbox" data-cond="${index}" data-part="pick" value="${escape(o.value)}"${attr("checked", (v ?? []).includes(o.value))}${off}> ${escape(o.label)}</label>`).join("")}</span>`;
@@ -175,6 +192,15 @@ export function mountPromotions(root, { profile }) {
       default:
         return "";
     }
+  }
+
+  /** Matches for what's typed in a customer condition's search box. */
+  function customerResults(index, chosen) {
+    const query = String(state.customerQuery[index] ?? "").trim();
+    if (!query) return "";
+    const found = model.findCustomers(state.customers, query, chosen);
+    if (!found.length) return `<li class="meta">No customer with a machine matches “${escape(query)}”.</li>`;
+    return found.map((c) => `<li><button class="link" data-action="pick-customer" data-index="${index}" data-id="${escape(c.id)}">${escape(c.name)}</button>${c.store_name ? ` <span class="meta">${escape(c.store_name)}</span>` : ""}</li>`).join("");
   }
 
   function audienceBlock() {
@@ -300,8 +326,20 @@ export function mountPromotions(root, { profile }) {
       const index = Number(element.dataset.cond);
       const condition = d.rules[index];
       const part = element.dataset.part;
+      if (part === "customer-search") {
+        // Only the matches change, so typing keeps its place in the box. Not on "change": that fires
+        // as the box loses focus to a click on a match, and redrawing then would swallow the click.
+        if (event.type !== "input") return;
+        state.customerQuery[index] = element.value;
+        const results = root.querySelector(`[data-results="${index}"]`);
+        if (results) results.innerHTML = customerResults(index, condition.value ?? []);
+        return;
+      }
       const number = (text) => (String(text).trim() === "" ? null : Number(text));
-      if (part === "field" && event.type === "change") d.rules[index] = model.blankCondition(element.value);
+      if (part === "field" && event.type === "change") {
+        d.rules[index] = model.blankCondition(element.value);
+        state.customerQuery = {};
+      }
       else if (part === "op" && event.type === "change") d.rules[index] = model.withOp(condition, element.value);
       else if (part === "pick" && event.type === "change") {
         const values = new Set(condition.value ?? []);
@@ -316,7 +354,7 @@ export function mountPromotions(root, { profile }) {
       if (event.type === "change") render();
       else {
         const words = element.closest(".condition")?.querySelector(".condition-words");
-        if (words) words.textContent = model.describeCondition(d.rules[index], state.options);
+        if (words) words.textContent = model.describeCondition(d.rules[index], state.options, state.customers);
       }
       refreshAudience();
     }
@@ -403,8 +441,20 @@ export function mountPromotions(root, { profile }) {
         return refreshAudience();
       case "remove-condition":
         state.draft.rules.splice(Number(element.dataset.index), 1);
+        state.customerQuery = {};
         render();
         return refreshAudience();
+      case "pick-customer":
+      case "unpick-customer": {
+        const index = Number(element.dataset.index);
+        const condition = state.draft.rules[index];
+        const chosen = (condition.value ?? []).filter((id) => id !== element.dataset.id);
+        condition.value = element.dataset.action === "pick-customer" ? [...chosen, element.dataset.id] : chosen;
+        state.customerQuery[index] = "";
+        render();
+        root.querySelector(`[data-cond="${index}"][data-part="customer-search"]`)?.focus();
+        return refreshAudience();
+      }
       case "save":
         if (showProblems().length) return;
         return run(async () => { await saveDraft(); return "Draft saved. Customers don't see it until you publish it."; });
