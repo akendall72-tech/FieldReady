@@ -395,6 +395,54 @@ export async function saveLead(id, changes) {
   if (!rows.length) throw new Error("That wasn't saved. Your access may not include that store.");
 }
 
+// ---------------------------------------------------------------- dashboard (owners, admins, customers)
+// The database's dashboard functions (migrations/20261119100000_dashboards.sql) run as the signed-in
+// person, so a customer gets their farm, an admin their store, an owner every store (or `stores`).
+
+/** The dashboard's numbers, counted on the server from the person's own date (YYYY-MM-DD). */
+export async function loadDashboardSummary(stores, today) {
+  const rows = unwrap(await supabase.rpc("dashboard_summary", { stores: stores ?? [], today }));
+  return rows?.[0] ?? null;
+}
+
+const inspectionArgs = ({ stores, byCustomer = null, machine = null, latestOnly = false, notReady = false } = {}) =>
+  ({ stores: stores ?? [], by_customer: byCustomer, machine, latest_only: latestOnly, not_ready: notReady });
+
+/** Finished inspections, newest first: rows `from` to `to` (a page), for these filters. */
+export async function loadDashboardInspections(filters, from, to) {
+  return unwrap(await supabase.rpc("dashboard_inspections", inspectionArgs(filters)).range(from, to));
+}
+
+/** Every finished inspection for these filters (a customer's own, which are few). */
+export async function loadAllDashboardInspections(filters) {
+  return loadAll(() => supabase.rpc("dashboard_inspections", inspectionArgs(filters)));
+}
+
+/** What these inspections found (result, failed and recommended checks, report), by inspection id. */
+export async function loadInspectionDetails(ids) {
+  const details = new Map();
+  for (let start = 0; start < ids.length; start += 100) {
+    const rows = unwrap(await supabase.rpc("inspection_details", { inspections: ids.slice(start, start + 100) }));
+    for (const row of rows ?? []) details.set(row.inspection_id, row);
+  }
+  return details;
+}
+
+/** Subscriptions on active machines by renewal date: rows `from` to `to`, only those due by `until` when given. */
+export async function loadDashboardSubscriptions({ stores, until = null } = {}, from, to) {
+  return unwrap(await supabase.rpc("dashboard_subscriptions", { stores: stores ?? [], until }).range(from, to));
+}
+
+/** Every subscription on active machines (a customer's own, which are few). */
+export async function loadAllDashboardSubscriptions({ stores, until = null } = {}) {
+  return loadAll(() => supabase.rpc("dashboard_subscriptions", { stores: stores ?? [], until }));
+}
+
+/** A finished inspection's report PDF (a path from inspection_details), as a file to save. */
+export async function downloadReport(path) {
+  return unwrap(await supabase.storage.from("inspection-files").download(path));
+}
+
 // ---------------------------------------------------------------- activity log (owners)
 
 /** The organization's activity, newest first: up to `limit` entries older than entry `before` (an id), for one filter. */

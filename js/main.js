@@ -1,7 +1,8 @@
 // The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
-// every page; employees see Customers & machines for their store and their own Custom checklists.
+// every page and open on the Dashboard; employees see Customers & machines for their store and their
+// own Custom checklists. Customer logins open on their Dashboard, with My equipment and Account.
 // Platform admins (public.platform_admins) also see Organizations, where new dealers are set up.
-// Customer logins use the app. Someone on a temporary password chooses their own first; someone with
+// Someone on a temporary password chooses their own first; someone with
 // two-step sign-in on enters their code before anything loads (the database shows them nothing
 // without it). Everyone on staff has an Account page to turn two-step sign-in on or off.
 
@@ -19,6 +20,7 @@ import { mountAccount } from "./views/account.js";
 import { mountActivity } from "./views/activity.js";
 import { mountFarm } from "./views/farm.js";
 import { mountPromotions } from "./views/promotions.js";
+import { mountDashboard } from "./views/dashboard.js";
 
 const root = document.getElementById("app");
 
@@ -27,6 +29,7 @@ const MANAGERS = ["owner", "admin"];
 const EVERYONE = [...STAFF, "customer"];
 
 const PAGES = [
+  { id: "dashboard", label: "Dashboard", mount: mountDashboard, roles: ["owner", "admin", "customer"] },
   { id: "farm", label: "My equipment", mount: mountFarm, roles: ["customer"] },
   { id: "checklist", label: "Inspection forms", mount: mountChecklist, roles: STAFF },
   { id: "subscriptions", label: "Subscriptions", mount: mountSubscriptions, roles: MANAGERS },
@@ -60,7 +63,7 @@ function renderSignIn(message = "") {
         <div class="hero">
           <p class="eyebrow">Field Ready</p>
           <h1>Admin</h1>
-          <p>Dealer staff manage customers, machines, checklists, and options here; customers add and update their machines. Sign in with your Field Ready email and password.</p>
+          <p>Dealer staff manage customers, machines, checklists, and options here; customers see their inspections and subscriptions and update their machines. Sign in with your Field Ready email and password.</p>
         </div>
         <form class="card" data-signin>
           <label>Email <input name="email" type="email" autocomplete="username" required></label>
