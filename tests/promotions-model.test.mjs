@@ -5,7 +5,7 @@
 
 import {
   CONDITIONS, blankCondition, withOp, describeCondition, conditionProblem, blankOffer, addDays, offerProblems, cleanOffer,
-  offerState, resultsFor, audienceSummary, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
+  offerState, resultsFor, audienceWords, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
 } from "../js/promotions-model.js";
 
 let passed = 0;
@@ -87,16 +87,16 @@ check("running", offerState({ status: "live", starts_on: "2026-11-01", ends_on: 
 check("scheduled", offerState({ status: "live", starts_on: "2026-12-01", ends_on: "2026-12-30" }, "2026-11-10").key === "scheduled");
 check("ended", offerState({ status: "live", starts_on: "2026-10-01", ends_on: "2026-10-30" }, "2026-11-10").label === "Ended");
 check("stopped", offerState({ status: "stopped", starts_on: "2026-11-01", ends_on: "2026-11-30" }, "2026-11-10").label === "Stopped");
-const responses = [
-  { promotion_id: "p", seen_at: "x", dismissed_at: null, interested_at: "x", lead_status: "sold" },
-  { promotion_id: "p", seen_at: "x", dismissed_at: "x", interested_at: null, lead_status: null },
-  { promotion_id: "p", seen_at: "x", dismissed_at: null, interested_at: null, lead_status: null },
-  { promotion_id: "q", seen_at: "x", dismissed_at: null, interested_at: "x", lead_status: "new" },
+const results = [
+  { promotion_id: "p", seen: 3, interested: 1, not_now: 1, sold: 1 },
+  { promotion_id: "q", seen: 1, interested: 1, not_now: 0, sold: 0 },
 ];
-const r = resultsFor(responses, "p");
-check("results count each response once", r.seen === 3 && r.interested === 1 && r.notNow === 1 && r.sold === 1);
-check("audience in words", audienceSummary([{ customer_id: "a" }, { customer_id: "a" }, { customer_id: "b" }]) === "Matches 2 customers, 3 machines"
-  && audienceSummary([{ customer_id: "a" }]) === "Matches 1 customer, 1 machine");
+const r = resultsFor(results, "p");
+check("results come from the server's counts", r.seen === 3 && r.interested === 1 && r.notNow === 1 && r.sold === 1);
+check("an offer nobody has answered has zeros", JSON.stringify(resultsFor(results, "new")) === JSON.stringify({ seen: 0, interested: 0, notNow: 0, sold: 0 }));
+check("audience in words", audienceWords({ customers: 2, machines: 3 }) === "Matches 2 customers, 3 machines"
+  && audienceWords({ customers: 1, machines: 1 }) === "Matches 1 customer, 1 machine"
+  && audienceWords({ customers: 1200, machines: 3400 }) === "Matches 1200 customers, 3400 machines");
 check("stores in words", storesWords({ store_ids: [] }, []) === "Every store"
   && storesWords({ store_ids: ["n"] }, [{ id: "n", name: "North" }]) === "North");
 check("open leads", isOpenLead({ lead_status: "new" }) && isOpenLead({ lead_status: "contacted" }) && !isOpenLead({ lead_status: "sold" }));

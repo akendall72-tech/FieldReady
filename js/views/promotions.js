@@ -10,13 +10,16 @@ import { choices } from "../equipment-model.js";
 import * as model from "../promotions-model.js";
 
 const today = () => new Date().toLocaleDateString("en-CA");
+/** See who lists at most this many machines; the count above it is always the whole. */
+const WHO_LIMIT = 500;
 
 export function mountPromotions(root, { profile }) {
   const canManage = profile.role === "owner" || profile.can_manage_promotions === true;
   const state = {
     tab: "offers",
     offers: [],
-    responses: [],
+    /** Each offer's counts (offer_results). */
+    results: [],
     leads: [],
     stores: [],
     options: [],
@@ -28,7 +31,8 @@ export function mountPromotions(root, { profile }) {
     open: null,
     draft: null,
     saved: "",
-    audience: { rows: null, loading: false, error: null, showWho: false },
+    /** summary: { customers, machines } today; rows: the first machines, loaded for See who. */
+    audience: { summary: null, rows: null, loading: false, error: null, showWho: false },
     leadFilter: "open",
     busy: false,
     loadError: null,
@@ -37,12 +41,12 @@ export function mountPromotions(root, { profile }) {
 
   async function load() {
     try {
-      const [offers, responses, leads, stores, options, customers] = await Promise.all([
-        api.loadPromotions(), api.loadOfferResponses(), api.loadLeads(), api.loadStores(), api.loadOptionRows(),
+      const [offers, results, leads, stores, options, customers] = await Promise.all([
+        api.loadPromotions(), api.loadOfferResults(), api.loadLeads(), api.loadStores(), api.loadOptionRows(),
         // Offers still open without it (until the database has offer_customers, chosen customers aren't named).
         api.offerCustomers().catch(() => []),
       ]);
-      Object.assign(state, { offers, responses, leads, stores: stores.filter((s) => s.active), options, customers, loadError: null });
+      Object.assign(state, { offers, results, leads, stores: stores.filter((s) => s.active), options, customers, loadError: null });
     } catch (error) {
       state.loadError = api.describe(error);
     }
@@ -91,7 +95,7 @@ export function mountPromotions(root, { profile }) {
   }
 
   function offerRow(offer) {
-    const r = model.resultsFor(state.responses, offer.id);
+    const r = model.resultsFor(state.results, offer.id);
     const status = model.offerState(offer, today());
     const conditions = offer.rules.length ? offer.rules.map((c) => model.describeCondition(c, state.options, state.customers)).join(" · ") : "Every customer machine";
     return `
@@ -109,7 +113,7 @@ export function mountPromotions(root, { profile }) {
     const d = state.draft;
     const can = editable();
     const off = attr("disabled", !can || state.busy);
-    const r = d.id ? model.resultsFor(state.responses, d.id) : null;
+    const r = d.id ? model.resultsFor(state.results, d.id) : null;
     const status = d.id ? model.offerState(d, today()) : { label: "New" };
     return `
       <button class="link back" data-action="close">← Offers</button>
@@ -206,12 +210,37 @@ export function mountPromotions(root, { profile }) {
   function audienceBlock() {
     if (!canManage) return "";
     const a = state.audience;
-    const words = a.error ? escape(a.error) : a.rows ? escape(model.audienceSummary(a.rows)) : a.loading ? "Counting…" : "";
+    const words = a.error ? escape(a.error) : a.summary ? escape(model.audienceWords(a.summary)) : a.loading ? "Counting…" : "";
     return `
       <div class="audience">
-        <p><strong data-audience>${words}</strong> today${a.rows?.length ? ` · <button class="link" data-action="who">${a.showWho ? "Hide" : "See who"}</button>` : ""}</p>
-        ${a.showWho && a.rows ? `<ul class="who-list">${a.rows.map((row) => `<li>${escape(row.customer_name)} · ${escape(row.machine_name ?? "Unnamed machine")} · ${escape(row.store_name ?? "")}</li>`).join("")}</ul>` : ""}
+        <p><strong data-audience>${words}</strong> today${a.summary?.machines ? ` · <button class="link" data-action="who">${a.showWho ? "Hide" : "See who"}</button>` : ""}</p>
+        ${a.showWho && a.summary ? whoList(a) : ""}
       </div>`;
+  }
+
+  /** The machines conditions reach, up to WHO_LIMIT of them (the count above is always the whole). */
+  function whoList(a) {
+    if (a.whoError) return `<p class="form-error">${escape(a.whoError)}</p>`;
+    if (!a.rows) return '<p class="loading">Loading…</p>';
+    const more = a.summary.machines > a.rows.length
+      ? `<p class="hint">Showing the first ${a.rows.length} of ${a.summary.machines} machines.</p>` : "";
+    return `<ul class="who-list">${a.rows.map((row) => `<li>${escape(row.customer_name)} · ${escape(row.machine_name ?? "Unnamed machine")} · ${escape(row.store_name ?? "")}</li>`).join("")}</ul>${more}`;
+  }
+
+  /** Loads the machines for See who, for the conditions as they are now. */
+  async function loadWho() {
+    const draft = state.draft;
+    if (!draft) return;
+    try {
+      const rows = await api.offerAudience(draft.rules, draft.store_ids, WHO_LIMIT);
+      if (state.draft === draft) state.audience = { ...state.audience, rows, whoError: null };
+    } catch (error) {
+      if (state.draft === draft) state.audience = { ...state.audience, rows: null, whoError: api.describe(error) };
+    }
+    if (state.draft === draft) {
+      const block = root.querySelector(".audience");
+      if (block) block.outerHTML = audienceBlock();
+    }
   }
 
   function actions() {
@@ -275,13 +304,14 @@ export function mountPromotions(root, { profile }) {
       const draft = state.draft;
       if (!draft) return;
       if (draft.rules.some((c) => model.conditionProblem(c))) {
-        state.audience = { ...state.audience, rows: null, loading: false, error: "Finish the conditions to see who they reach." };
+        state.audience = { ...state.audience, summary: null, rows: null, loading: false, error: "Finish the conditions to see who they reach." };
       } else {
         try {
-          const rows = await api.offerAudience(draft.rules, draft.store_ids);
-          state.audience = { ...state.audience, rows, loading: false, error: null };
+          const summary = await api.offerAudienceSummary(draft.rules, draft.store_ids);
+          state.audience = { ...state.audience, summary, rows: null, whoError: null, loading: false, error: null };
+          if (state.audience.showWho && summary.machines) loadWho();
         } catch (error) {
-          state.audience = { ...state.audience, rows: null, loading: false, error: api.describe(error) };
+          state.audience = { ...state.audience, summary: null, rows: null, loading: false, error: api.describe(error) };
         }
       }
       if (state.draft === draft) {
@@ -297,7 +327,7 @@ export function mountPromotions(root, { profile }) {
     state.open = offer?.id ?? "new";
     state.draft = offer ? structuredClone(offer) : model.blankOffer(today());
     state.saved = JSON.stringify(state.draft);
-    state.audience = { rows: null, loading: false, error: null, showWho: false };
+    state.audience = { summary: null, rows: null, loading: false, error: null, showWho: false };
     render();
     refreshAudience();
   }
@@ -434,6 +464,7 @@ export function mountPromotions(root, { profile }) {
       case "who":
         state.audience.showWho = !state.audience.showWho;
         root.querySelector(".audience").outerHTML = audienceBlock();
+        if (state.audience.showWho && !state.audience.rows) loadWho();
         return;
       case "add-condition":
         state.draft.rules.push(model.blankCondition());

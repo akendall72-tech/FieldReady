@@ -200,15 +200,10 @@ export function offerState(offer, today) {
   return { key: "running", label: "Running" };
 }
 
-/** How customers responded to an offer. */
-export function resultsFor(responses, promotionId) {
-  const mine = responses.filter((r) => r.promotion_id === promotionId);
-  return {
-    seen: mine.filter((r) => r.seen_at).length,
-    interested: mine.filter((r) => r.interested_at).length,
-    notNow: mine.filter((r) => r.dismissed_at && !r.interested_at).length,
-    sold: mine.filter((r) => r.lead_status === "sold").length,
-  };
+/** How customers responded to an offer, from offer_results' rows (counted on the server); zeros before anyone has. */
+export function resultsFor(results, promotionId) {
+  const row = results.find((r) => r.promotion_id === promotionId);
+  return { seen: row?.seen ?? 0, interested: row?.interested ?? 0, notNow: row?.not_now ?? 0, sold: row?.sold ?? 0 };
 }
 
 export const LEAD_STATUSES = [
@@ -220,10 +215,8 @@ export const LEAD_STATUSES = [
 export const leadStatusLabel = (value) => LEAD_STATUSES.find((s) => s.value === value)?.label ?? "New";
 export const isOpenLead = (lead) => !lead.lead_status || lead.lead_status === "new" || lead.lead_status === "contacted";
 
-/** "Matches 23 customers, 31 machines" from offer_audience's rows. */
-export function audienceSummary(rows) {
-  const customers = new Set(rows.map((row) => row.customer_id)).size;
-  const machines = rows.length;
+/** "Matches 23 customers, 31 machines" from offer_audience_summary (counted on the server). */
+export function audienceWords({ customers = 0, machines = 0 } = {}) {
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   return `Matches ${plural(customers, "customer")}, ${plural(machines, "machine")}`;
 }

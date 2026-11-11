@@ -93,18 +93,20 @@ export async function chooseOwnPassword(profileId, password) {
 
 /** Every version of every checklist this person can see (owners and admins see drafts too). */
 export async function loadChecklists() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("inspection_templates")
     .select("id, organization_id, template_id, version, title, status, content, notes, updated_at, published_at, created_at")
-    .order("created_at", { ascending: true }));
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /** Every option (guidance systems, features, correction services…), hidden ones included. */
 export async function loadOptionRows() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("catalog_options")
     .select("id, organization_id, list, value, label, parent_value, sort_order, active, details, updated_at")
-    .order("sort_order", { ascending: true }));
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /** Option lists grouped by list name, in order. Hidden options are included (marked `active: false`). */
@@ -214,25 +216,28 @@ export async function setChecklistStatus(templateId, from, to) {
 
 /** Everyone this person may see (owners: everyone; admins: their store). */
 export async function loadPeople() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("profiles")
     .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, updated_at, created_at")
-    .order("full_name", { ascending: true }));
+    .order("full_name", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /** Invitations that haven't become logins (made before the website, or interrupted). */
 export async function loadInvitations() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("invitations")
     .select("email, full_name, role, location_id, customer_id, created_at")
-    .order("created_at", { ascending: true }));
+    .order("created_at", { ascending: true })
+    .order("email", { ascending: true }));
 }
 
 export async function loadStores() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("locations")
     .select("id, name, active, created_at")
-    .order("name", { ascending: true }));
+    .order("name", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /**
@@ -251,10 +256,11 @@ export async function savePerson(person, changes) {
 
 /** Requests (made in the app) to delete a login. Owners see everyone's; others only their own. */
 export async function loadDeletionRequests() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("account_deletion_requests")
     .select("id, profile_id, full_name, email, role, requested_at")
-    .order("requested_at", { ascending: true }));
+    .order("requested_at", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 /** Declines a deletion request: the login stays. */
@@ -333,7 +339,7 @@ export async function offersFunctionVersion() {
 
 /** Every offer in the organization (staff read them all; customers never do). */
 export async function loadPromotions() {
-  return unwrap(await supabase.from("promotions").select("*").order("created_at", { ascending: false }));
+  return loadAll(() => supabase.from("promotions").select("*").order("created_at", { ascending: false }).order("id", { ascending: true }));
 }
 
 /** Saves a draft (or adds a new one); returns the saved offer. */
@@ -358,23 +364,30 @@ export async function deletePromotion(id) {
 }
 
 /** The customers and machines these conditions reach now ("See who"). */
-export async function offerAudience(rules, stores) {
-  return unwrap(await supabase.rpc("offer_audience", { rules, stores: stores ?? [] }));
+/** The first `limit` machines conditions reach today (for See who; the count comes from offerAudienceSummary). */
+export async function offerAudience(rules, stores, limit = 500) {
+  return unwrap(await supabase.rpc("offer_audience", { rules, stores: stores ?? [] }).range(0, limit - 1));
+}
+
+/** How many customers and machines conditions reach today, counted on the server: { customers, machines }. */
+export async function offerAudienceSummary(rules, stores) {
+  const rows = unwrap(await supabase.rpc("offer_audience_summary", { rules, stores: stores ?? [] }));
+  return rows?.[0] ?? { customers: 0, machines: 0 };
 }
 
 /** Customers the offer editor can choose: every store's for owners and promotions managers, else your store's. */
 export async function offerCustomers() {
-  return unwrap(await supabase.rpc("offer_customers"));
+  return loadAll(() => supabase.rpc("offer_customers"));
 }
 
-/** How customers responded to offers (for results). */
-export async function loadOfferResponses() {
-  return unwrap(await supabase.from("promotion_responses").select("promotion_id, seen_at, dismissed_at, interested_at, lead_status"));
+/** Each offer's results (seen, interested, not now, sold), counted on the server from the responses this person may see. */
+export async function loadOfferResults() {
+  return loadAll(() => supabase.rpc("offer_results"));
 }
 
 /** Leads with the customer's details, newest first (owners and promotions managers: every store). */
 export async function loadLeads() {
-  return unwrap(await supabase.rpc("promotion_leads"));
+  return loadAll(() => supabase.rpc("promotion_leads"));
 }
 
 export async function saveLead(id, changes) {
@@ -420,10 +433,11 @@ export async function loadCustomers() {
 
 /** Every store's contacts for customers. */
 export async function loadContacts() {
-  return unwrap(await supabase
+  return loadAll(() => supabase
     .from("store_contacts")
     .select("id, organization_id, location_id, role, name, phone, email, sort_order, updated_at")
-    .order("sort_order", { ascending: true }));
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true }));
 }
 
 const CONTACT_COLUMNS = ["organization_id", "location_id", "role", "name", "phone", "email", "sort_order"];
