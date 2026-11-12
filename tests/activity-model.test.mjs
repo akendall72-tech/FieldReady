@@ -48,6 +48,7 @@ check("…and on", say("organization.changed", "Agri-Service", { customer_inspec
 check("the promotions permission", say("person.changed", "Sam", { promotions: [false, true] }) === "changed Sam: can now manage promotions");
 check("the forms and options permission", say("person.changed", "Sam", { setup: [false, true] }) === "changed Sam: can now edit forms and options");
 check("…taken away", say("person.changed", "Sam", { setup: [true, false] }) === "changed Sam: can no longer edit forms and options");
+check("the lead manager box", say("person.changed", "Sam", { leads: [false, true] }) === "changed Sam: is now a customer lead manager");
 check("an emailed offer", say("promotion.emailed", "Renew early", { count: 12 }) === "emailed the offer Renew early to 12 farms");
 check("…to one farm", say("promotion.emailed", "Renew early", { count: 1 }) === "emailed the offer Renew early to 1 farm");
 check("a farm unsubscribing", say("customer.unsubscribed", "Hillcrest Farms", { email: "office@hillcrest.example" }) === "stopped offer emails with the link in one (office@hillcrest.example)");

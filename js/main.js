@@ -1,7 +1,7 @@
 // The website shell: sign-in, who may use the site, the header, and pages. Owners and admins see
 // every page and open on the Dashboard; employees see Customers & machines for their store and their
 // own Custom checklists, plus Machine options and Subscriptions when an owner lets them edit forms
-// and options. Customer logins open on their Dashboard, with My equipment and Account.
+// and options. Promotions is for owners, promotions managers, and customer lead managers. Customer logins open on their Dashboard, with My equipment and Account.
 // Platform admins (public.platform_admins) also see Organizations, where new dealers are set up.
 // Someone on a temporary password chooses their own first; someone with
 // two-step sign-in on enters their code before anything loads (the database shows them nothing
@@ -10,7 +10,7 @@
 import { supabase, signIn, signOut, loadProfile, isPlatformAdmin, chooseOwnPassword, describe, assuranceLevel, listFactors, verifyCode, functionVersion, EXPECTED_FUNCTION_VERSION, offersFunctionVersion, EXPECTED_OFFERS_VERSION } from "./api.js";
 import { cleanCode, needsCode, verifiedFactor, WRONG_CODE, NOT_A_CODE } from "./two-step-model.js";
 import { escape } from "./ui.js";
-import { newPasswordProblem, canEditSetup } from "./people-model.js";
+import { newPasswordProblem, canEditSetup, seesPromotions } from "./people-model.js";
 import { mountChecklist } from "./views/checklist.js";
 import { mountOptions } from "./views/options.js";
 import { mountPeople } from "./views/people.js";
@@ -33,11 +33,11 @@ const PAGES = [
   { id: "dashboard", label: "Dashboard", mount: mountDashboard, roles: ["owner", "admin", "customer"] },
   { id: "farm", label: "My equipment", mount: mountFarm, roles: ["customer"] },
   { id: "checklist", label: "Inspection forms", mount: mountChecklist, roles: STAFF },
-  { id: "subscriptions", label: "Subscriptions", mount: mountSubscriptions, roles: MANAGERS, editors: true },
-  { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS, editors: true },
+  { id: "subscriptions", label: "Subscriptions", mount: mountSubscriptions, roles: MANAGERS, also: canEditSetup },
+  { id: "options", label: "Machine options", mount: mountOptions, roles: MANAGERS, also: canEditSetup },
   { id: "people", label: "People & stores", mount: mountPeople, roles: MANAGERS },
   { id: "customers", label: "Customers & machines", mount: mountCustomers, roles: STAFF },
-  { id: "promotions", label: "Promotions", mount: mountPromotions, roles: STAFF },
+  { id: "promotions", label: "Promotions", mount: mountPromotions, roles: ["owner"], also: seesPromotions },
   { id: "activity", label: "Activity", mount: mountActivity, roles: ["owner"] },
   { id: "organizations", label: "Organizations", mount: mountOrganizations, roles: STAFF, platformOnly: true },
   { id: "account", label: "Account", mount: mountAccount, roles: EVERYONE },
@@ -45,9 +45,9 @@ const PAGES = [
 
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", employee: "Employee", customer: "Customer" };
 
-/** The pages this person may open (`editors`: also staff an owner lets edit forms and options). */
+/** The pages this person may open (`also`: staff an owner gave a permission: forms and options, promotions, leads). */
 const pagesFor = (profile) => PAGES.filter((page) =>
-  (page.roles.includes(profile?.role) || (page.editors && canEditSetup(profile)))
+  (page.roles.includes(profile?.role) || page.also?.(profile) === true)
   && (!page.platformOnly || profile.isPlatformAdmin));
 
 /** The page named in the address (#options) if this person may open it, or their first page (employees: customers). */

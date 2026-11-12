@@ -1,13 +1,15 @@
 // Promotions: offers for customers whose machines meet conditions, and the leads they bring.
 // Owners and promotions managers (staff an owner gave the permission) write, publish, and stop
-// offers; everyone on staff sees them and works leads (other staff only their store's). A published
-// offer can't be changed, only stopped or copied. The database decides who an offer reaches when
+// offers for any store. Owners and customer lead managers work the leads: owners every store's, lead
+// managers their own store's (since 2026-11-23). Other staff don't see this page. A published offer
+// can't be changed, only stopped or copied. The database decides who an offer reaches when
 // customers open the app (my_offers), so the count here is who it would reach today.
 
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import { choices } from "../equipment-model.js";
 import * as model from "../promotions-model.js";
+import { canManageLeads } from "../people-model.js";
 
 const today = () => new Date().toLocaleDateString("en-CA");
 /** See who lists at most this many machines; the count above it is always the whole. */
@@ -16,8 +18,11 @@ const WHO_LIMIT = 500;
 export function mountPromotions(root, { profile }) {
   const canManage = profile.role === "owner" || profile.can_manage_promotions === true;
   const isOwner = profile.role === "owner";
+  /** Owners and customer lead managers: the Leads tab. */
+  const worksLeads = canManageLeads(profile);
   const state = {
-    tab: "offers",
+    /** A lead manager who doesn't write offers opens on Leads. */
+    tab: worksLeads && !canManage ? "leads" : "offers",
     offers: [],
     /** Each offer's counts (offer_results). */
     results: [],
@@ -49,7 +54,7 @@ export function mountPromotions(root, { profile }) {
   async function load() {
     try {
       const [offers, results, leads, stores, options, customers, mailingAddress] = await Promise.all([
-        api.loadPromotions(), api.loadOfferResults(), api.loadLeads(), api.loadStores(), api.loadOptionRows(),
+        api.loadPromotions(), api.loadOfferResults(), worksLeads ? api.loadLeads() : [], api.loadStores(), api.loadOptionRows(),
         // Offers still open without it (until the database has offer_customers, chosen customers aren't named).
         api.offerCustomers().catch(() => []),
         canManage ? api.loadMailingAddress(profile.organization_id).catch(() => "") : "",
@@ -80,15 +85,15 @@ export function mountPromotions(root, { profile }) {
       <div class="toolbar">
         <div>
           <h1>Promotions</h1>
-          <p class="meta">Offers for customers whose machines fit them. Customers see them in the app and tap I'm interested; you get the lead.</p>
+          <p class="meta">Offers for customers whose machines fit them. Customers see them in the app and tap I'm interested; the store's lead managers get the lead.</p>
         </div>
         ${canManage && state.tab === "offers" && !state.draft ? '<button class="primary" data-action="new">New Offer</button>' : ""}
       </div>
       <div class="segmented" role="group" aria-label="Show">
         <button class="segment${state.tab === "offers" ? " active" : ""}" data-tab="offers">Offers</button>
-        <button class="segment${state.tab === "leads" ? " active" : ""}" data-tab="leads">Leads${newLeads ? ` (${newLeads} new)` : ""}</button>
+        ${worksLeads ? `<button class="segment${state.tab === "leads" ? " active" : ""}" data-tab="leads">Leads${newLeads ? ` (${newLeads} new)` : ""}</button>` : ""}
       </div>
-      ${state.tab === "leads" ? leadsView() : state.draft ? editor() : offerList()}`;
+      ${state.tab === "leads" && worksLeads ? leadsView() : state.draft ? editor() : offerList()}`;
   }
 
   function offerList() {
@@ -329,7 +334,7 @@ export function mountPromotions(root, { profile }) {
     return `
       <div class="card">
         <p class="hint">Customers who tapped I'm interested. The store's Sales contact got an email for each; reply to it, or call, then mark how it went.
-          ${canManage ? "You see every store's." : "You see your store's."}</p>
+          ${isOwner ? "You see every store's." : "You see your store's, as its customer lead manager."}</p>
         <div class="segmented" role="group" aria-label="Leads">
           ${filters.map(([value, label]) => `<button class="segment${state.leadFilter === value ? " active" : ""}" data-lead-filter="${value}">${label}</button>`).join("")}
         </div>

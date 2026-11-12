@@ -44,7 +44,7 @@ export async function signOut() {
 export async function loadProfile(userId) {
   return unwrap(await supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, organization_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, organizations(name), locations(name), customers!profiles_customer_fkey(name, location_id)")
+    .select("id, full_name, email, role, active, location_id, organization_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, can_manage_leads, organizations(name), locations(name), customers!profiles_customer_fkey(name, location_id)")
     .eq("id", userId)
     .maybeSingle());
 }
@@ -218,7 +218,7 @@ export async function setChecklistStatus(templateId, from, to) {
 export async function loadPeople() {
   return loadAll(() => supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, updated_at, created_at")
+    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, can_manage_leads, updated_at, created_at")
     .order("full_name", { ascending: true })
     .order("id", { ascending: true }));
 }

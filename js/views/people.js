@@ -294,6 +294,7 @@ export function mountPeople(root, { profile }) {
           <span class="role role-${escape(person.role)}">${escape(model.roleLabel(person.role))}</span>
           ${person.can_manage_promotions && person.role !== "owner" ? '<span class="tag">Promotions</span>' : ""}
           ${person.can_edit_setup && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Forms &amp; options</span>' : ""}
+          ${person.can_manage_leads && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Lead manager</span>' : ""}
           <span>${escape(person.role === "owner" ? "Every store" : storeName(person.location_id))}</span>
           ${person.active ? "" : '<span class="access-off">Access off</span>'}
         </div>
@@ -324,6 +325,9 @@ export function mountPeople(root, { profile }) {
         ${model.canGiveSetup(viewer, { ...person, role: edits.role }) ? `
           <label class="check"><input type="checkbox" data-edit="can_edit_setup"${attr("checked", edits.can_edit_setup)}> Can edit forms and options</label>
           <p class="hint">Changes and publishes the inspection forms, and changes Machine options and Subscriptions, for every store. Uncheck it when they're done. Owners always can.</p>` : ""}
+        ${model.canGiveLeads(viewer, { ...person, role: edits.role }) ? `
+          <label class="check"><input type="checkbox" data-edit="can_manage_leads"${attr("checked", edits.can_manage_leads)}> Customer lead manager</label>
+          <p class="hint">Gets a notification when a customer at their store taps I'm Interested on an offer, sees those leads, and marks them Contacted, Sold, or Not interested. Without it, staff don't see leads. Owners always can, for every store.</p>` : ""}
         ${person.id === viewer.id ? '<p class="hint">You can\'t turn off your own access.</p>' : ""}
         ${model.isLastOwner(person, state.people) ? '<p class="hint">The only owner stays an owner with access. Make someone else an owner first.</p>' : ""}
         <p class="form-error" data-edit-problem></p>
@@ -480,7 +484,8 @@ export function mountPeople(root, { profile }) {
       case "edit":
         state.editing = person.id;
         state.edits = { full_name: person.full_name, role: person.role, location_id: person.location_id, active: person.active,
-          can_manage_promotions: person.can_manage_promotions === true, can_edit_setup: person.can_edit_setup === true };
+          can_manage_promotions: person.can_manage_promotions === true, can_edit_setup: person.can_edit_setup === true,
+          can_manage_leads: person.can_manage_leads === true };
         return render();
       case "cancel-edit":
         state.editing = null;
@@ -563,6 +568,9 @@ export function mountPeople(root, { profile }) {
     }
     if (model.canGiveSetup(viewer, { ...person, role: edits.role }) && edits.can_edit_setup !== (person.can_edit_setup === true)) {
       changes.can_edit_setup = edits.can_edit_setup;
+    }
+    if (model.canGiveLeads(viewer, { ...person, role: edits.role }) && edits.can_manage_leads !== (person.can_manage_leads === true)) {
+      changes.can_manage_leads = edits.can_manage_leads;
     }
     if (Object.keys(changes).length === 0) {
       state.editing = null;

@@ -5,7 +5,7 @@
 
 import {
   rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel,
-  canEditSetup, canGiveSetup,
+  canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, seesPromotions,
 } from "../js/people-model.js";
 
 let passed = 0;
@@ -38,6 +38,15 @@ check("owners give it to admins and employees", canGiveSetup(owner, admin) && ca
 check("…not to owners or customer logins", !canGiveSetup(owner, person("owner2", "owner", null)) && !canGiveSetup(owner, person("cust", "customer", null)));
 check("…and not to themselves", !canGiveSetup(owner, owner));
 check("admins and employees can't give it", !canGiveSetup(admin, tech) && !canGiveSetup({ ...tech, can_edit_setup: true }, southTech));
+
+// The customer lead manager box
+check("owners always work leads", canManageLeads(owner));
+check("other staff only with the box", !canManageLeads(admin) && !canManageLeads(tech) && canManageLeads({ ...tech, can_manage_leads: true }));
+check("customer logins never", !canManageLeads({ id: "cust", role: "customer", can_manage_leads: true }));
+check("owners give it to admins and employees, not themselves", canGiveLeads(owner, tech) && canGiveLeads(owner, admin) && !canGiveLeads(owner, owner) && !canGiveLeads(admin, tech));
+check("Promotions is for owners, promotions managers, and lead managers", seesPromotions(owner)
+  && seesPromotions({ ...tech, can_manage_promotions: true }) && seesPromotions({ ...admin, can_manage_leads: true })
+  && !seesPromotions(tech) && !seesPromotions(admin) && !seesPromotions({ id: "c", role: "customer", can_manage_leads: true }));
 
 // Changing people
 {

@@ -34,6 +34,21 @@ export const canEditSetup = (profile) =>
 export const canGiveSetup = (viewer, person) =>
   viewer.role === "owner" && viewer.id !== person.id && (person.role === "admin" || person.role === "employee");
 
+/**
+ * Whether this person works customer leads (sees them, marks them, and is notified): owners for every
+ * store, Customer lead managers for their own. Mirrors private.works_leads() in
+ * supabase/migrations/…_lead_managers.sql.
+ */
+export const canManageLeads = (profile) =>
+  profile?.role === "owner" || (profile?.role !== "customer" && profile?.can_manage_leads === true);
+
+/** Who may give or take away someone's lead manager box: the same rule as the forms and options one. */
+export const canGiveLeads = (viewer, person) => canGiveSetup(viewer, person);
+
+/** Whether this person sees the Promotions page: owners, promotions managers, and lead managers. */
+export const seesPromotions = (profile) =>
+  profile?.role === "owner" || (profile?.role !== "customer" && (profile?.can_manage_promotions === true || profile?.can_manage_leads === true));
+
 /** Whether `person` is the organization's only active owner (who must stay one). */
 export const isLastOwner = (person, people) =>
   person.role === "owner" && person.active && !people.some((p) => p.id !== person.id && p.role === "owner" && p.active);
