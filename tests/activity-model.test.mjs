@@ -46,6 +46,8 @@ check("a store contact", say("contact.added", "Sam", { role: "ptx_specialist", s
 check("customer inspections turned off", say("organization.changed", "Agri-Service", { customer_inspections: [true, false] }) === "turned customer inspections off");
 check("…and on", say("organization.changed", "Agri-Service", { customer_inspections: [false, true] }) === "turned customer inspections on");
 check("the promotions permission", say("person.changed", "Sam", { promotions: [false, true] }) === "changed Sam: can now manage promotions");
+check("the forms and options permission", say("person.changed", "Sam", { setup: [false, true] }) === "changed Sam: can now edit forms and options");
+check("…taken away", say("person.changed", "Sam", { setup: [true, false] }) === "changed Sam: can no longer edit forms and options");
 check("a published offer", say("promotion.published", "Renew early", { ends: "2026-12-10" }) === "published the offer Renew early (until 2026-12-10)");
 check("a new lead", say("lead.new", "Hillcrest Farms", { offer: "Renew early", machine: "Fendt 724" }) === "tapped I'm interested in Renew early for the Fendt 724 (Hillcrest Farms)");
 check("a lead sold", say("lead.sold", "Hillcrest Farms", { offer: "Renew early" }) === "marked Hillcrest Farms's interest in Renew early as sold");

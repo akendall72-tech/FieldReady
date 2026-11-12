@@ -50,6 +50,8 @@ export function describeActivity(entry) {
       const parts = [changes(d, { role: "role", store: "store", name: "name" })];
       const promotions = pair(d.promotions);
       if (promotions) parts.push(promotions[1] ? "can now manage promotions" : "can no longer manage promotions");
+      const setup = pair(d.setup);
+      if (setup) parts.push(setup[1] ? "can now edit forms and options" : "can no longer edit forms and options");
       const what = parts.filter(Boolean).join("; ");
       return `changed ${subject}${what ? `: ${what}` : ""}`;
     }

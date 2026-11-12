@@ -4,17 +4,19 @@
 //
 // Phones use the live (newest published) version of each form. A form is editable as soon as it's
 // open: the first change starts a draft of the next version, and changes save to it on their own.
-// Publish to Phones sends the draft out; Discard Changes goes back to what phones have. Owners
-// change everything in the shared forms and publish them, and admins change only How to Check
-// steps. Custom checklists belong to whoever made them (anyone on staff); only they see, edit,
-// publish, and use them. The database enforces all of this, so this page only hides what someone
-// can't do. Published versions never change; a retired checklist isn't offered for new inspections.
+// Publish to Phones sends the draft out; Discard Changes goes back to what phones have. Owners, and
+// staff an owner lets edit forms and options (People & stores), change everything in the shared
+// forms and publish them; other admins look at the published forms. Custom checklists belong to
+// whoever made them (anyone on staff); only they see, edit, publish, and use them. The database
+// enforces all of this, so this page only hides what someone can't do. Published versions never
+// change; a retired checklist isn't offered for new inspections.
 
 import * as api from "../api.js";
 import { escape, attr, formatDate, notice } from "../ui.js";
 import * as model from "../checklist-model.js";
 import { usedOn, optionsIn } from "../options-model.js";
 import { canHaveGuidance, hasPlanterTechnology } from "../equipment-model.js";
+import { canEditSetup } from "../people-model.js";
 
 /** The usual Precision Planting form, opened first. */
 const PREFERRED_PLANTER = "preseason-planter";
@@ -24,8 +26,10 @@ const SAVE_DELAY = 700;
 export function mountChecklist(root, { profile }) {
   const isOwner = profile.role === "owner";
   const isAdmin = profile.role === "admin";
-  /** Employees see only their own Custom checklists. */
-  const kinds = isOwner || isAdmin ? model.KINDS : model.KINDS.filter((kind) => kind.value === "custom");
+  /** Owners, and staff an owner lets edit forms and options. */
+  const isEditor = canEditSetup(profile);
+  /** Other employees see only their own Custom checklists; other admins look at the shared forms too. */
+  const kinds = isEditor || isAdmin ? model.KINDS : model.KINDS.filter((kind) => kind.value === "custom");
   const state = {
     /** Every version of every checklist this person can see; `rows` are the open checklist's. */
     allRows: [],
@@ -57,12 +61,12 @@ export function mountChecklist(root, { profile }) {
   const saving = { timer: null, running: null, error: null };
 
   const isCustom = () => state.kind === "custom";
-  /** Making, publishing, retiring, and discarding: owners for shared forms, anyone for their own. */
-  const canManage = () => isCustom() || isOwner;
+  /** Changing, making, publishing, retiring, and discarding: editors for shared forms, anyone for their own. */
+  const canManage = () => isCustom() || isEditor;
   /** A form with a live version or a draft can be edited; a retired one can't. */
   const editable = () => Boolean(state.draft || state.live);
   const canEditAll = () => editable() && canManage();
-  const canEditSteps = () => editable() && (canManage() || isAdmin);
+  const canEditSteps = () => editable() && canManage();
   const isDirty = () => Boolean(state.content) && JSON.stringify(state.content) !== state.saved;
   // Option values phones understand, for lists the server has (an unloaded list checks nothing).
   const known = () => Object.fromEntries(
@@ -259,7 +263,7 @@ export function mountChecklist(root, { profile }) {
     if (state.draft) return `${state.live ? "Changes saved" : "Saved"} ${escape(formatDate(state.draft.updated_at))}${state.live ? ". Not on phones yet." : "."}`;
     if (!editable()) return "Retired: not offered for new inspections.";
     if (!canEditSteps()) return "";
-    return `Changes you make save on their own as a draft. Phones keep this version until ${canManage() ? "you publish" : "an owner publishes"}.`;
+    return "Changes you make save on their own as a draft. Phones keep this version until you publish.";
   }
 
   function toolbar() {
@@ -286,7 +290,7 @@ export function mountChecklist(root, { profile }) {
         <div class="actions">${actions.join("")}</div>
       </div>
       ${alsoFor.length ? `<p class="callout">This form is also used for ${escape(alsoFor.join(", "))}. Changes apply to all of them.</p>` : ""}
-      ${!canManage() && isAdmin ? `<p class="callout">As an admin you can change How to Check steps. An owner publishes them to phones.</p>` : ""}
+      ${!canManage() ? `<p class="callout">Only owners, and people an owner lets edit forms and options, change these forms. You can look at them here.</p>` : ""}
       ${!editable() && isCustom() && canManage() ? `<p class="callout">This checklist is retired, so it isn't offered for new inspections. Bring it back from the list.</p>` : ""}`;
   }
 
@@ -335,7 +339,7 @@ export function mountChecklist(root, { profile }) {
         <div class="card">
           <h2>${escape(entry.label)} uses the Other form</h2>
           <p>Machines with ${escape(entry.label)} guidance get the <strong>Other</strong> form until ${escape(entry.label)} has its own.</p>
-          ${isOwner && other ? `<button class="primary" data-action="create-guidance"${attr("disabled", state.busy)}>Create a Form for ${escape(entry.label)}</button>
+          ${isEditor && other ? `<button class="primary" data-action="create-guidance"${attr("disabled", state.busy)}>Create a Form for ${escape(entry.label)}</button>
             <p class="hint">It starts as a copy of the Other form. Publish it to phones when it's ready.</p>` : ""}
         </div>`;
     }
@@ -344,7 +348,7 @@ export function mountChecklist(root, { profile }) {
       <div class="card">
         <h2>No form for ${escape(entry.label)} yet</h2>
         <p>Machines of this type have no Machine inspection until it has a form.</p>
-        ${isOwner ? `
+        ${isEditor ? `
           <div class="grid2">
             <label>Start from
               <select data-field="start-from">

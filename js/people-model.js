@@ -5,7 +5,7 @@
 
 export const ROLES = [
   { value: "owner", label: "Owner", about: "Everything, at every store" },
-  { value: "admin", label: "Admin", about: "Their store, its people, and checklist steps" },
+  { value: "admin", label: "Admin", about: "Their store and its people" },
   { value: "employee", label: "Employee", about: "Inspections at their store" },
 ];
 
@@ -17,6 +17,22 @@ export function rolesFor(viewer) {
   if (viewer.role === "admin") return ["employee"];
   return [];
 }
+
+/**
+ * Whether this person edits the shared inspection forms and the option lists (Machine options,
+ * Subscriptions): owners always, other staff when an owner gives them the permission. Mirrors
+ * private.can_edit_setup() in supabase/migrations/…_setup_editors.sql.
+ */
+export const canEditSetup = (profile) =>
+  profile?.role === "owner" || (profile?.role !== "customer" && profile?.can_edit_setup === true);
+
+/**
+ * Whether `viewer` may give or take away `person`'s forms and options permission: owners, for admins
+ * and employees other than themselves (owners always can; customer logins never). Mirrors
+ * private.guard_profile_update.
+ */
+export const canGiveSetup = (viewer, person) =>
+  viewer.role === "owner" && viewer.id !== person.id && (person.role === "admin" || person.role === "employee");
 
 /** Whether `person` is the organization's only active owner (who must stay one). */
 export const isLastOwner = (person, people) =>

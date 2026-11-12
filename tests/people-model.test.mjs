@@ -5,6 +5,7 @@
 
 import {
   rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel,
+  canEditSetup, canGiveSetup,
 } from "../js/people-model.js";
 
 let passed = 0;
@@ -26,6 +27,17 @@ const people = [owner, admin, tech, southTech, southAdmin];
 check("owners give any role", rolesFor(owner).join() === "owner,admin,employee");
 check("admins add employees only", rolesFor(admin).join() === "employee");
 check("employees add nobody", rolesFor(tech).length === 0);
+
+// The forms and options permission
+check("owners always edit forms and options", canEditSetup(owner) && canEditSetup({ ...owner, can_edit_setup: false }));
+check("other staff only with the permission", !canEditSetup(admin) && !canEditSetup(tech)
+  && canEditSetup({ ...tech, can_edit_setup: true }) && canEditSetup({ ...admin, can_edit_setup: true }));
+check("customer logins never", !canEditSetup({ id: "cust", role: "customer", can_edit_setup: true }));
+check("nobody signed in can't", !canEditSetup(null));
+check("owners give it to admins and employees", canGiveSetup(owner, admin) && canGiveSetup(owner, tech) && canGiveSetup(owner, southAdmin));
+check("…not to owners or customer logins", !canGiveSetup(owner, person("owner2", "owner", null)) && !canGiveSetup(owner, person("cust", "customer", null)));
+check("…and not to themselves", !canGiveSetup(owner, owner));
+check("admins and employees can't give it", !canGiveSetup(admin, tech) && !canGiveSetup({ ...tech, can_edit_setup: true }, southTech));
 
 // Changing people
 {

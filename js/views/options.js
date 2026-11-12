@@ -1,16 +1,18 @@
 // The machine options editor: the choices technicians pick from when they describe a machine's
 // technology (guidance systems, steering, features…). Correction services are on Subscriptions.
 //
-// Owners rename, reorder, hide, and add options and change the settings the app reads. Values never
-// change once saved, because machines and inspections store them; hidden options stay readable on
-// records that use them. Admins can look but not change anything (the database enforces this too).
+// Owners, and staff they let edit forms and options, rename, reorder, hide, and add options and
+// change the settings the app reads. Values never change once saved, because machines and
+// inspections store them; hidden options stay readable on records that use them. Other admins can
+// look but not change anything (the database enforces this too).
 
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import * as model from "../options-model.js";
+import { canEditSetup } from "../people-model.js";
 
 export function mountOptions(root, { profile }) {
-  const isOwner = profile.role === "owner";
+  const canEdit = canEditSetup(profile);
   const state = {
     rows: [],
     saved: new Map(),
@@ -100,19 +102,19 @@ export function mountOptions(root, { profile }) {
         <div>
           <h1>Machine options</h1>
           <p class="meta">The choices technicians pick from when they describe a machine. Phones pick up saved changes at their next sync.</p>
-          ${isOwner ? `<p class="meta" data-dirty>${dirty ? "Unsaved changes" : "All changes saved"}</p>` : ""}
+          ${canEdit ? `<p class="meta" data-dirty>${dirty ? "Unsaved changes" : "All changes saved"}</p>` : ""}
         </div>
-        ${isOwner ? `
+        ${canEdit ? `
           <div class="actions">
             <button class="secondary" data-action="discard"${attr("disabled", !dirty || state.busy)}>Discard Changes</button>
             <button class="primary" data-action="save"${attr("disabled", !dirty || state.busy)}>Save Changes</button>
           </div>` : ""}
       </div>
-      ${isOwner ? "" : '<p class="callout">Only owners can change options. You can look at them here.</p>'}`;
+      ${canEdit ? "" : '<p class="callout">Only owners, and people an owner lets edit forms and options, change these. You can look at them here.</p>'}`;
   }
 
   function problemsPanel() {
-    if (!isOwner) return "";
+    if (!canEdit) return "";
     const found = model.problems(state.rows);
     if (found.length === 0) return "";
     return `
@@ -159,7 +161,7 @@ export function mountOptions(root, { profile }) {
         ${parentPicker}
         ${equipmentPicker}
         ${rows.length ? `<ol class="option-list">${rows.map((row, index) => optionRow(row, index, rows.length)).join("")}</ol>` : `<p class="hint">${escape(empty)}</p>`}
-        ${isOwner && list.canAdd !== false && (!list.parentList || parent()) ? `
+        ${canEdit && list.canAdd !== false && (!list.parentList || parent()) ? `
           <form class="add-option" data-add>
             <label>Add an option <input name="label" placeholder="Name people will see" autocomplete="off"></label>
             <button class="secondary" type="submit">Add</button>
@@ -170,14 +172,14 @@ export function mountOptions(root, { profile }) {
   function optionRow(row, index, count) {
     const key = escape(keyOf(row));
     const canHide = model.canHide(row);
-    const disabled = attr("disabled", !isOwner);
+    const disabled = attr("disabled", !canEdit);
     const settings = (info().settings ?? []).map((setting) => settingInput(row, setting)).join("");
     const manual = row.details?.manual ? `Cites ${escape(row.details.manual)}${row.details.page ? `, p. ${escape(row.details.page)}` : ""}. ` : "";
     return `
       <li class="option${row.active ? "" : " hidden-option"}" data-row="${key}">
         <div class="option-head">
           <label class="option-name">Name <input data-field="label" data-key="${key}" value="${escape(row.label)}"${disabled}></label>
-          ${isOwner ? `
+          ${canEdit ? `
             <span class="tools">
               <button class="icon" data-action="up" data-key="${key}"${attr("disabled", index === 0)} aria-label="Move up" title="Move up">↑</button>
               <button class="icon" data-action="down" data-key="${key}"${attr("disabled", index === count - 1)} aria-label="Move down" title="Move down">↓</button>
@@ -186,7 +188,7 @@ export function mountOptions(root, { profile }) {
         </div>
         ${settings ? `<div class="option-settings">${settings}</div>` : ""}
         <div class="option-foot">
-          <label class="check"><input type="checkbox" data-field="active" data-key="${key}"${attr("checked", row.active)}${attr("disabled", !isOwner || (!canHide && row.active))}> Offered in the app</label>
+          <label class="check"><input type="checkbox" data-field="active" data-key="${key}"${attr("checked", row.active)}${attr("disabled", !canEdit || (!canHide && row.active))}> Offered in the app</label>
           <span class="hint">${manual}${row.id ? `Saved as <code>${escape(row.value)}</code>` : `Will be saved as <code>${escape(row.value)}</code>`}${canHide ? "" : ". The app relies on this one, so it can be renamed but not hidden"}.</span>
         </div>
       </li>`;
@@ -195,7 +197,7 @@ export function mountOptions(root, { profile }) {
   function settingInput(row, setting) {
     const key = escape(keyOf(row));
     const value = row.details?.[setting.key];
-    const disabled = attr("disabled", !isOwner);
+    const disabled = attr("disabled", !canEdit);
     const data = `data-field="setting" data-setting="${setting.key}" data-type="${setting.type}" data-key="${key}"`;
     switch (setting.type) {
       case "bool":
@@ -260,7 +262,7 @@ export function mountOptions(root, { profile }) {
       state.equipment = element.value;
       return render();
     }
-    if (!isOwner) return;
+    if (!canEdit) return;
     const row = rowFor(element.dataset.key);
     if (!row) return;
     switch (field) {
@@ -304,7 +306,7 @@ export function mountOptions(root, { profile }) {
     if (!form) return;
     event.preventDefault();
     const label = form.label.value.trim();
-    if (!label || !isOwner) return;
+    if (!label || !canEdit) return;
     const under = info().parentList ? parent() : null;
     const equipment = model.hasUsedOn(state.list) ? state.equipment || null : null;
     const row = model.newOption(state.rows, state.list, label, { organizationId: profile.organization_id, parent: under, equipment });
@@ -326,7 +328,7 @@ export function mountOptions(root, { profile }) {
       case "save": return save();
       case "discard": return discard();
     }
-    if (!isOwner) return;
+    if (!canEdit) return;
     const row = rowFor(element.dataset.key);
     if (!row) return;
     switch (action) {

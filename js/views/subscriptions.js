@@ -1,7 +1,7 @@
 // The Subscriptions page: the correction services technicians pick from when they record a
-// machine's subscription, grouped by provider. Owners add providers and services, rename them, add
-// notes, and choose whether each is offered in the app; admins look only (the database enforces
-// this too). A change saves as soon as you leave the field or tick the box.
+// machine's subscription, grouped by provider. Owners (and staff they let edit forms and options)
+// add providers and services, rename them, add notes, and choose whether each is offered in the
+// app; other admins look only (the database enforces this too). A change saves as soon as you leave the field or tick the box.
 //
 // Services are options (catalog_options, list correction_service) under their correction type.
 // Their values never change once saved, because subscriptions store them; a service that's no
@@ -11,9 +11,10 @@ import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
 import * as model from "../subscriptions-model.js";
 import { baseline, changes, problems, optionsIn } from "../options-model.js";
+import { canEditSetup } from "../people-model.js";
 
 export function mountSubscriptions(root, { profile }) {
-  const isOwner = profile.role === "owner";
+  const canEdit = canEditSetup(profile);
   const state = {
     rows: [],
     saved: new Map(),
@@ -69,9 +70,9 @@ export function mountSubscriptions(root, { profile }) {
           <p class="meta" data-save-status>${saveStatus()}</p>
         </div>
       </div>
-      ${isOwner ? "" : '<p class="callout">Only owners change these.</p>'}
+      ${canEdit ? "" : '<p class="callout">Only owners, and people an owner lets edit forms and options, change these.</p>'}
       ${groups().map(providerCard).join("")}
-      ${isOwner ? `
+      ${canEdit ? `
         <form class="card add-provider" data-add-provider>
           <label>Add a provider <input name="provider" placeholder="e.g. Hemisphere" autocomplete="off"></label>
           <button class="secondary" type="submit"${attr("disabled", state.busy)}>Add Provider</button>
@@ -82,7 +83,7 @@ export function mountSubscriptions(root, { profile }) {
   function saveStatus() {
     if (saving.error) return `<span class="save-error">Couldn't save: ${escape(saving.error)}</span> <button class="link" data-action="reload">Reload</button>`;
     if (saving.pending) return "Saving…";
-    return isOwner ? "Changes save as you make them. Phones pick them up at their next sync." : "";
+    return canEdit ? "Changes save as you make them. Phones pick them up at their next sync." : "";
   }
 
   function refreshStatus() {
@@ -91,7 +92,7 @@ export function mountSubscriptions(root, { profile }) {
   }
 
   function providerCard(group) {
-    const canAdd = isOwner && group.name !== model.NO_PROVIDER;
+    const canAdd = canEdit && group.name !== model.NO_PROVIDER;
     const adding = state.adding?.provider === group.name;
     return `
       <div class="card">
@@ -105,10 +106,10 @@ export function mountSubscriptions(root, { profile }) {
     const id = escape(row.id);
     return `
       <li class="service${row.active ? "" : " off"}">
-        <label>Name <input data-service="label" data-id="${id}" value="${escape(row.label)}"${attr("disabled", !isOwner)}></label>
-        <label>Note <input data-service="note" data-id="${id}" value="${escape(row.details?.note ?? "")}" placeholder="Optional"${attr("disabled", !isOwner)}></label>
+        <label>Name <input data-service="label" data-id="${id}" value="${escape(row.label)}"${attr("disabled", !canEdit)}></label>
+        <label>Note <input data-service="note" data-id="${id}" value="${escape(row.details?.note ?? "")}" placeholder="Optional"${attr("disabled", !canEdit)}></label>
         <span class="service-type">${escape(typeLabel(row.parent_value))}</span>
-        <label class="check"><input type="checkbox" data-service="active" data-id="${id}"${attr("checked", row.active)}${attr("disabled", !isOwner)}> Offered in the app</label>
+        <label class="check"><input type="checkbox" data-service="active" data-id="${id}"${attr("checked", row.active)}${attr("disabled", !canEdit)}> Offered in the app</label>
       </li>`;
   }
 
@@ -170,7 +171,7 @@ export function mountSubscriptions(root, { profile }) {
     }
     const field = element.dataset.service;
     const row = field && rowFor(element.dataset.id);
-    if (!row || !isOwner) return;
+    if (!row || !canEdit) return;
     if (field === "label") {
       if (!element.value.trim()) {
         element.value = row.label;
