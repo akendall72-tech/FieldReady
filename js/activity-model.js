@@ -80,7 +80,8 @@ export function describeActivity(entry) {
     case "organization.renamed": return `renamed the organization: ${changes(d, { name: "" }).trim() || subject}`;
     case "organization.changed": {
       const on = pair(d.customer_inspections);
-      return on ? `turned customer inspections ${on[1] ? "on" : "off"}` : "changed the organization's settings";
+      if (on) return `turned customer inspections ${on[1] ? "on" : "off"}`;
+      return pair(d.mailing_address) ? "changed the mailing address for offer emails" : "changed the organization's settings";
     }
     case "form.published": return `published the ${subject} form`;
     case "form.retired": return `retired the ${subject} form`;
@@ -97,6 +98,8 @@ export function describeActivity(entry) {
     }
     case "promotion.published": return `published the offer ${subject}${d.ends ? ` (until ${d.ends})` : ""}`;
     case "promotion.stopped": return `stopped the offer ${subject}`;
+    case "promotion.emailed": return `emailed the offer ${subject} to ${d.count ?? "some"} ${d.count === 1 ? "farm" : "farms"}`;
+    case "customer.unsubscribed": return `stopped offer emails with the link in one${email}`;
     case "lead.new": return `tapped I'm interested in ${d.offer ?? "an offer"}${d.machine ? ` for the ${d.machine}` : ""}${entry.subject ? ` (${entry.subject})` : ""}`;
     case "lead.contacted": return `marked ${subject}'s interest in ${d.offer ?? "an offer"} as contacted`;
     case "lead.sold": return `marked ${subject}'s interest in ${d.offer ?? "an offer"} as sold`;

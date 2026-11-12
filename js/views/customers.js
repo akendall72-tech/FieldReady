@@ -193,6 +193,8 @@ export function mountCustomers(root, { profile }) {
           <label>Phone <input data-draft="phone" type="tel" value="${escape(draft.phone)}" autocomplete="off"></label>
           <label>Email <input data-draft="email" type="email" value="${escape(draft.email)}" autocomplete="off"></label>
         </div>
+        <label class="check"><input type="checkbox" data-draft="offer_emails"${attr("checked", draft.offer_emails)}> Email this farm your offers</label>
+        ${customer && customer.offer_emails === false ? '<p class="hint">They stopped offer emails with the link in one. Tick it again only if they ask to get them.</p>' : ""}
         <p class="hint">Contact details for the farm. ${isManager ? "App logins are added separately, below the customer's machines." : "Owners and admins add app logins."}</p>
         <p class="form-error" data-customer-problems></p>
         <div class="actions">
@@ -271,6 +273,7 @@ export function mountCustomers(root, { profile }) {
     phone: customer?.phone ?? "",
     email: customer?.email ?? "",
     location_id: customer?.location_id ?? newCustomerStore(),
+    offer_emails: customer ? customer.offer_emails !== false : true,
   });
 
   /** A new customer goes in the store being looked at, or the person's own, or the first they may use. */
@@ -323,7 +326,7 @@ export function mountCustomers(root, { profile }) {
         return refreshList();
     }
     if (element.dataset.draft && state.draft) {
-      state.draft[element.dataset.draft] = element.value;
+      state.draft[element.dataset.draft] = element.type === "checkbox" ? element.checked : element.value;
       // Once a problem is showing, keep it current as they fix it.
       if (root.querySelector("[data-customer-problems]")?.textContent) showCustomerProblems();
       return;

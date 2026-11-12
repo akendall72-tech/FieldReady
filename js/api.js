@@ -327,7 +327,7 @@ export async function functionVersion() {
 // ---------------------------------------------------------------- promotions
 
 /** The `offers` server function this website expects: its VERSION (supabase/functions/offers/index.ts). */
-export const EXPECTED_OFFERS_VERSION = "2026-11-10";
+export const EXPECTED_OFFERS_VERSION = "2026-11-22";
 
 /** The deployed offers function's version, or null when it isn't deployed (or predates the check). */
 export async function offersFunctionVersion() {
@@ -335,6 +335,40 @@ export async function offersFunctionVersion() {
   if (!error) return data?.version ?? null;
   if (error.context?.status === 404 || error.name === "FunctionsFetchError" || error.name === "FunctionsHttpError") return null;
   throw error;
+}
+
+/**
+ * For a running offer: farms it fits that would get the email now, that had it, that have no email,
+ * and that said no to offer emails (owners and promotions managers; offer_email_summary).
+ */
+export async function offerEmailSummary(promotionId) {
+  const rows = unwrap(await supabase.rpc("offer_email_summary", { promotion: promotionId }));
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  return { ready: row?.ready ?? 0, emailed: row?.emailed ?? 0, noEmail: row?.no_email ?? 0, optedOut: row?.opted_out ?? 0 };
+}
+
+/** Emails a running offer to the farms it fits that haven't had it (the offers server function). */
+export async function emailOffer(promotionId) {
+  const { data, error } = await supabase.functions.invoke("offers", { body: { action: "emailOffer", promotionId } });
+  if (!error) return data;
+  const answer = await error.context?.json?.().catch(() => null);
+  if (answer?.error) throw new Error(answer.error);
+  if (error.context?.status === 404 || error.name === "FunctionsFetchError") {
+    throw new Error("Couldn't reach the offers server function. Check your connection, or ask Prime Theory Labs to deploy it.");
+  }
+  throw error;
+}
+
+/** The organization's mailing address, printed at the foot of offer emails. */
+export async function loadMailingAddress(organizationId) {
+  const row = unwrap(await supabase.from("organizations").select("mailing_address").eq("id", organizationId).maybeSingle());
+  return row?.mailing_address ?? "";
+}
+
+/** Owners set the mailing address. */
+export async function saveMailingAddress(organizationId, address) {
+  const rows = unwrap(await supabase.from("organizations").update({ mailing_address: address }).eq("id", organizationId).select("id"));
+  if (!rows.length) throw new Error("That wasn't saved. Only owners can change it.");
 }
 
 /** Every offer in the organization (staff read them all; customers never do). */
@@ -474,7 +508,7 @@ async function loadAll(query, pageSize = 500) {
 export async function loadCustomers() {
   return loadAll(() => supabase
     .from("customers")
-    .select("id, organization_id, name, email, phone, location_id, archived_at, updated_at")
+    .select("id, organization_id, name, email, phone, location_id, archived_at, offer_emails, updated_at")
     .order("name", { ascending: true })
     .order("id", { ascending: true }));
 }

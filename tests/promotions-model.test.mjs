@@ -6,6 +6,7 @@
 import {
   CONDITIONS, blankCondition, withOp, describeCondition, conditionProblem, blankOffer, addDays, offerProblems, cleanOffer,
   offerState, resultsFor, audienceWords, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
+  addressProblem, emailWords, emailResult, ADDRESS_MAX, unsubscribeToken,
 } from "../js/promotions-model.js";
 
 let passed = 0;
@@ -20,6 +21,23 @@ const rows = [
   { list: "component_kind", value: "display", label: "Display" }, { list: "feature", value: "sectionControl", label: "Section control" },
   { list: "receiver_correction_level", value: "high", label: "High (RTK)" },
 ];
+
+// Emailing offers
+check("a mailing address is needed", addressProblem("  ") !== "" && addressProblem("12 Main St, Hometown, IA 50000") === "");
+check("…and kept short", addressProblem("x".repeat(ADDRESS_MAX + 1)) !== "");
+check("the email line counts each group", emailWords({ ready: 3, emailed: 10, noEmail: 1, optedOut: 2 }) ===
+  "Ready to email 3 farms. Emailed to 10 farms so far. 1 farm has no email on its customer record. 2 farms said no to offer emails.");
+check("…and says when nobody's waiting", emailWords({ ready: 0, emailed: 4, noEmail: 0, optedOut: 0 }) === "No farms are waiting for this email. Emailed to 4 farms so far.");
+check("…and nothing while loading", emailWords(null) === "");
+check("a sent email says how many", emailResult({ sent: 12, left: 0, problem: "" }) === "Emailed 12 farms.");
+check("…and what's left over the day's limit", emailResult({ sent: 200, left: 15, problem: "" }) === "Emailed 200 farms. Today's limit is reached: email the other 15 farms tomorrow.");
+check("…when the limit was already used", emailResult({ sent: 0, left: 5, problem: "" }) === "Today's limit for offer emails is used up. Email the other 5 farms tomorrow.");
+check("…when everyone had it", emailResult({ sent: 0, left: 0, problem: "" }) === "Every farm it fits has had it already.");
+check("…and when Resend refused", emailResult({ sent: 100, left: 20, problem: "Resend refused them: limit" }) ===
+  "Emailed 100 farms, then email stopped: Resend refused them: limit 20 farms still to email; try again later.");
+check("…even the first batch", emailResult({ sent: 0, left: 20, problem: "Couldn't reach Resend." }).startsWith("Email stopped: Couldn't reach Resend."));
+check("the unsubscribe link's token is read", unsubscribeToken("#t=6F9619FF-8B86-D011-B42D-00C04FC964FF") === "6f9619ff-8b86-d011-b42d-00c04fc964ff");
+check("…and nothing else passes for one", [undefined, "", "#", "#t=", "#t=not-a-token", "#x=6F9619FF-8B86-D011-B42D-00C04FC964FF"].every((h) => unsubscribeToken(h) === null));
 
 // Conditions
 check("every condition has a starting value of its own kind", CONDITIONS.every((c) => {

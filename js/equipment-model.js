@@ -78,6 +78,8 @@ export function cleanCustomer(customer) {
     phone: String(customer.phone ?? "").trim(),
     email: String(customer.email ?? "").trim().toLowerCase(),
     location_id: customer.location_id,
+    // Offer emails (the website only; the app doesn't send this column, so it keeps what's saved).
+    offer_emails: customer.offer_emails !== false,
   };
 }
 

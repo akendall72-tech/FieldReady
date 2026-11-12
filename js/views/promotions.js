@@ -15,6 +15,7 @@ const WHO_LIMIT = 500;
 
 export function mountPromotions(root, { profile }) {
   const canManage = profile.role === "owner" || profile.can_manage_promotions === true;
+  const isOwner = profile.role === "owner";
   const state = {
     tab: "offers",
     offers: [],
@@ -34,6 +35,12 @@ export function mountPromotions(root, { profile }) {
     /** summary: { customers, machines } today; rows: the first machines, loaded for See who. */
     audience: { summary: null, rows: null, loading: false, error: null, showWho: false },
     leadFilter: "open",
+    /** The open running offer's email counts (offer_email_summary), or null while loading. */
+    emailSummary: null,
+    emailError: null,
+    /** The organization's mailing address, printed in offer emails, and the owner's edit of it. */
+    mailingAddress: "",
+    addressDraft: "",
     busy: false,
     loadError: null,
   };
@@ -41,12 +48,14 @@ export function mountPromotions(root, { profile }) {
 
   async function load() {
     try {
-      const [offers, results, leads, stores, options, customers] = await Promise.all([
+      const [offers, results, leads, stores, options, customers, mailingAddress] = await Promise.all([
         api.loadPromotions(), api.loadOfferResults(), api.loadLeads(), api.loadStores(), api.loadOptionRows(),
         // Offers still open without it (until the database has offer_customers, chosen customers aren't named).
         api.offerCustomers().catch(() => []),
+        canManage ? api.loadMailingAddress(profile.organization_id).catch(() => "") : "",
       ]);
-      Object.assign(state, { offers, results, leads, stores: stores.filter((s) => s.active), options, customers, loadError: null });
+      Object.assign(state, { offers, results, leads, stores: stores.filter((s) => s.active), options, customers, mailingAddress,
+        addressDraft: mailingAddress, loadError: null });
     } catch (error) {
       state.loadError = api.describe(error);
     }
@@ -91,7 +100,23 @@ export function mountPromotions(root, { profile }) {
       const offers = state.offers.filter((offer) => model.offerState(offer, today()).key === key);
       if (!offers.length) return "";
       return `<div class="card"><h2>${heading}</h2><ul class="offer-list">${offers.map(offerRow).join("")}</ul></div>`;
-    }).join("");
+    }).join("") + addressCard();
+  }
+
+  /** The mailing address offer emails show (US law asks marketing email for one). Owners set it. */
+  function addressCard() {
+    if (!canManage) return "";
+    const saved = state.mailingAddress.trim();
+    return `
+      <div class="card">
+        <h2>Mailing address</h2>
+        <p class="meta">Printed at the foot of every offer email you send customers.${saved ? "" : " Offer emails can't be sent until it's added."}</p>
+        ${isOwner ? `
+          <label>Address <textarea data-address rows="2" maxlength="${model.ADDRESS_MAX}" placeholder="123 Main St, Hometown, IA 50000">${escape(state.addressDraft)}</textarea></label>
+          <p class="form-error" data-address-problem></p>
+          <button class="secondary" data-action="save-address"${attr("disabled", state.busy)}>Save Address</button>`
+        : `<p>${saved ? escape(saved) : "Not added yet. An owner adds it here."}</p>`}
+      </div>`;
   }
 
   function offerRow(offer) {
@@ -121,6 +146,7 @@ export function mountPromotions(root, { profile }) {
         <h2>${escape(d.title || "New offer")} <span class="tag">${escape(status.label)}</span></h2>
         ${!can && canManage ? '<p class="callout">Published offers can\'t be changed. Stop it, or make a copy to change it.</p>' : ""}
         ${r ? `<p class="meta">${r.seen} saw it · ${r.interested} interested · ${r.notNow} not now · ${r.sold} sold</p>` : ""}
+        ${emailBlock()}
         <div class="grid2">
           <label>Title <input data-offer="title" maxlength="80" value="${escape(d.title)}" placeholder="Renew your RTX early"${off}></label>
           <label>The deal <input data-offer="deal" maxlength="80" value="${escape(d.deal)}" placeholder="10% off a year"${off}></label>
@@ -243,6 +269,43 @@ export function mountPromotions(root, { profile }) {
     }
   }
 
+  /** A published offer: emailing it to the farms it fits (once it's running), and when phones hear. */
+  function emailBlock() {
+    const d = state.draft;
+    if (!canManage || !d?.id || d.status !== "live") return "";
+    const status = model.offerState(d, today());
+    if (status.key === "scheduled") {
+      return `<div class="offer-email"><h3>Email it</h3>
+        <p class="meta">You can email it to the farms it fits once it starts on ${escape(d.starts_on)}. Customers who turned on offer notifications in the app hear about it that morning.</p></div>`;
+    }
+    if (status.key !== "running") return "";
+    const s = state.emailSummary;
+    const words = state.emailError ? escape(state.emailError) : s ? escape(model.emailWords(s)) : "Counting…";
+    const noAddress = !state.mailingAddress.trim();
+    return `
+      <div class="offer-email">
+        <h3>Email it</h3>
+        <p class="meta">${words}</p>
+        ${noAddress ? `<p class="callout">Offer emails must show your mailing address. ${isOwner ? "Add it under Mailing address on the Offers list." : "Ask an owner to add it under Mailing address on the Offers list."}</p>` : ""}
+        ${s?.ready ? `<button class="secondary" data-action="email-offer"${attr("disabled", state.busy || noAddress)}>Email ${s.ready} ${s.ready === 1 ? "Farm" : "Farms"}</button>` : ""}
+        <p class="hint">Each farm gets it once, at the email on its customer record, with your mailing address and a link to stop offer emails. Replies go to the store's Sales contact.</p>
+      </div>`;
+  }
+
+  /** Loads the open running offer's email counts. */
+  async function loadEmailSummary() {
+    const d = state.draft;
+    if (!canManage || !d?.id || d.status !== "live" || model.offerState(d, today()).key !== "running") return;
+    try {
+      state.emailSummary = await api.offerEmailSummary(d.id);
+      state.emailError = null;
+    } catch (error) {
+      state.emailSummary = null;
+      state.emailError = api.describe(error);
+    }
+    if (state.draft === d) render();
+  }
+
   function actions() {
     const d = state.draft;
     if (!canManage) return '<button class="secondary" data-action="close">Close</button>';
@@ -328,8 +391,11 @@ export function mountPromotions(root, { profile }) {
     state.draft = offer ? structuredClone(offer) : model.blankOffer(today());
     state.saved = JSON.stringify(state.draft);
     state.audience = { summary: null, rows: null, loading: false, error: null, showWho: false };
+    state.emailSummary = null;
+    state.emailError = null;
     render();
     refreshAudience();
+    loadEmailSummary();
   }
 
   function close() {
@@ -342,6 +408,10 @@ export function mountPromotions(root, { profile }) {
   function onInput(event) {
     const element = event.target;
     const d = state.draft;
+    if (element.dataset.address !== undefined) {
+      state.addressDraft = element.value;
+      return;
+    }
     if (element.dataset.offer && d) {
       d[element.dataset.offer] = element.value;
       return;
@@ -491,7 +561,7 @@ export function mountPromotions(root, { profile }) {
         return run(async () => { await saveDraft(); return "Draft saved. Customers don't see it until you publish it."; });
       case "publish":
         if (showProblems().length) return;
-        if (!confirm(`Publish "${state.draft.title.trim()}"? Customers whose machines fit see it in the app from ${state.draft.starts_on} to ${state.draft.ends_on}. After publishing, it can be stopped but not changed.`)) return;
+        if (!confirm(`Publish "${state.draft.title.trim()}"? Customers whose machines fit see it in the app from ${state.draft.starts_on} to ${state.draft.ends_on}, and those who turned on offer notifications are told when it starts. After publishing, it can be stopped but not changed.`)) return;
         return run(async () => {
           const saved = await saveDraft();
           await api.setPromotionStatus(saved.id, "live");
@@ -518,6 +588,31 @@ export function mountPromotions(root, { profile }) {
         state.saved = "";
         render();
         return refreshAudience();
+      }
+      case "email-offer": {
+        const d = state.draft;
+        const count = state.emailSummary?.ready ?? 0;
+        if (!count || !confirm(`Email "${d.title}" to ${count} ${count === 1 ? "farm" : "farms"}? Each gets it once, and it can't be unsent.`)) return;
+        return run(async () => {
+          const result = await api.emailOffer(d.id);
+          state.emailSummary = await api.offerEmailSummary(d.id).catch(() => null);
+          return model.emailResult(result);
+        });
+      }
+      case "save-address": {
+        const problem = model.addressProblem(state.addressDraft);
+        if (problem) {
+          const area = root.querySelector("[data-address-problem]");
+          if (area) area.textContent = problem;
+          return;
+        }
+        return run(async () => {
+          const address = state.addressDraft.trim();
+          await api.saveMailingAddress(profile.organization_id, address);
+          state.mailingAddress = address;
+          state.addressDraft = address;
+          return "Mailing address saved.";
+        });
       }
       case "delete":
         if (!confirm("Delete this draft?")) return;

@@ -48,6 +48,10 @@ check("…and on", say("organization.changed", "Agri-Service", { customer_inspec
 check("the promotions permission", say("person.changed", "Sam", { promotions: [false, true] }) === "changed Sam: can now manage promotions");
 check("the forms and options permission", say("person.changed", "Sam", { setup: [false, true] }) === "changed Sam: can now edit forms and options");
 check("…taken away", say("person.changed", "Sam", { setup: [true, false] }) === "changed Sam: can no longer edit forms and options");
+check("an emailed offer", say("promotion.emailed", "Renew early", { count: 12 }) === "emailed the offer Renew early to 12 farms");
+check("…to one farm", say("promotion.emailed", "Renew early", { count: 1 }) === "emailed the offer Renew early to 1 farm");
+check("a farm unsubscribing", say("customer.unsubscribed", "Hillcrest Farms", { email: "office@hillcrest.example" }) === "stopped offer emails with the link in one (office@hillcrest.example)");
+check("the mailing address", say("organization.changed", "Dealer", { mailing_address: ["", "12 Main St"] }) === "changed the mailing address for offer emails");
 check("a published offer", say("promotion.published", "Renew early", { ends: "2026-12-10" }) === "published the offer Renew early (until 2026-12-10)");
 check("a new lead", say("lead.new", "Hillcrest Farms", { offer: "Renew early", machine: "Fendt 724" }) === "tapped I'm interested in Renew early for the Fendt 724 (Hillcrest Farms)");
 check("a lead sold", say("lead.sold", "Hillcrest Farms", { offer: "Renew early" }) === "marked Hillcrest Farms's interest in Renew early as sold");

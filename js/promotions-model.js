@@ -226,3 +226,48 @@ export function storesWords(offer, stores) {
   if (!offer.store_ids?.length) return "Every store";
   return offer.store_ids.map((id) => stores.find((s) => s.id === id)?.name ?? "A removed store").join(", ");
 }
+
+/** Most characters a mailing address may have (organizations.mailing_address). */
+export const ADDRESS_MAX = 300;
+
+/** What's wrong with a mailing address for offer emails, or "". */
+export function addressProblem(text) {
+  const address = String(text ?? "").trim();
+  if (!address) return "Enter the mailing address offer emails show.";
+  if (address.length > ADDRESS_MAX) return `Keep it under ${ADDRESS_MAX} characters.`;
+  return "";
+}
+
+const farms = (n) => `${n} ${n === 1 ? "farm" : "farms"}`;
+
+/**
+ * The email section's line, from offer_email_summary: who gets it now, who had it, and who won't
+ * (no email on their customer record, or said no to offer emails).
+ */
+export function emailWords(summary) {
+  if (!summary) return "";
+  const parts = [];
+  parts.push(summary.ready ? `Ready to email ${farms(summary.ready)}.` : "No farms are waiting for this email.");
+  if (summary.emailed) parts.push(`Emailed to ${farms(summary.emailed)} so far.`);
+  if (summary.noEmail) parts.push(`${farms(summary.noEmail)} ${summary.noEmail === 1 ? "has" : "have"} no email on ${summary.noEmail === 1 ? "its" : "their"} customer record.`);
+  if (summary.optedOut) parts.push(`${farms(summary.optedOut)} said no to offer emails.`);
+  return parts.join(" ");
+}
+
+/** The notice after Email: how many went, and what's left (over the day's limit, or Resend refused). */
+export function emailResult(result) {
+  const sent = Number(result?.sent ?? 0);
+  const left = Number(result?.left ?? 0);
+  if (result?.problem) {
+    return `${sent ? `Emailed ${farms(sent)}, then ` : ""}${sent ? "e" : "E"}mail stopped: ${result.problem}${left ? ` ${farms(left)} still to email; try again later.` : ""}`;
+  }
+  if (!sent && !left) return "Every farm it fits has had it already.";
+  if (!sent) return `Today's limit for offer emails is used up. Email the other ${farms(left)} tomorrow.`;
+  return `Emailed ${farms(sent)}.${left ? ` Today's limit is reached: email the other ${farms(left)} tomorrow.` : ""}`;
+}
+
+/** The farm's token from an unsubscribe link's address (#t=<uuid>), or null. */
+export function unsubscribeToken(hash) {
+  const value = (/(?:^#?|&)t=([^&]*)/.exec(String(hash ?? "")) ?? [])[1] ?? "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value.toLowerCase() : null;
+}

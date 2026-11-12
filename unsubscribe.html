@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <!-- The page an offer email's "Stop offer emails" link opens. Same lockdown as the admin site:
+       scripts, styles, and images only from this site; network calls only to Field Ready's Supabase project. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://izkxngngadngzwpeezyb.supabase.co; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Stop offer emails</title>
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="css/site.css">
+  <!-- First: refuses to run inside another site's frame. -->
+  <script src="js/frame-guard.js"></script>
+  <script type="module" src="js/unsubscribe.js"></script>
+</head>
+<body>
+  <div id="app"><p class="loading">Loading…</p></div>
+  <noscript><p class="loading">This page needs JavaScript.</p></noscript>
+</body>
+</html>
