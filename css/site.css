@@ -341,6 +341,13 @@ details.answer-groups summary { cursor: pointer; font-weight: 600; font-size: 0.
 .part-row.new { background: var(--surface-tint); border-radius: var(--radius); padding: 4px 12px 12px; margin-top: 8px; border-top: none; }
 .part-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
 .part-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 10px; }
+/* GNSS receivers: which one a subscription belongs to, and moving one to another of the customer's machines. */
+.receiver-choice { max-width: 440px; }
+.receiver-note { margin: 8px 0 0; }
+.receiver-move { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 10px; padding: 8px 12px; background: var(--surface-tint); border-radius: var(--radius); }
+.receiver-move .hint { flex-basis: 100%; margin: 0; }
+.receiver-move label.inline { flex: 1 1 260px; min-width: 0; white-space: nowrap; }
+.receiver-move label.inline select { flex: 1; min-width: 0; width: 100%; }
 
 @media (max-width: 860px) {
   .person, .store, .contact-row { grid-template-columns: 1fr; }

@@ -22,11 +22,14 @@ const actions = ["person.changed", "person.access_off", "person.access_on", "per
   "email.sent", "email.failed", "store.added", "store.renamed", "store.closed", "store.reopened", "store.removed", "contact.added",
   "contact.changed", "contact.removed", "organization.created", "organization.renamed", "organization.changed", "form.published", "form.retired",
   "option.added", "option.changed", "option.removed", "customer.deleted", "machine.deleted", "inspection.deleted",
-  "promotion.published", "promotion.stopped", "lead.new", "lead.contacted", "lead.sold", "lead.notInterested"];
+  "promotion.published", "promotion.stopped", "lead.new", "lead.contacted", "lead.sold", "lead.notInterested", "receiver.moved"];
 const groupsOf = (action) => ACTIVITY_GROUPS.filter((g) => g.prefixes.some((p) => action.startsWith(p))).map((g) => g.id);
 check("every action the database and the function record has exactly one filter", actions.every((action) => groupsOf(action).length === 1));
 
 // Wording
+check("a receiver moved between a customer's machines", say("receiver.moved", "AG-25", { serial: "1234", from: "Fendt 724", to: "MF 7S.180" })
+  === "moved receiver AG-25 (S/N 1234) from Fendt 724 to MF 7S.180");
+check("Records shows receiver moves", groupFilter("records").includes("action.like.receiver.*"));
 check("role and store changes", say("person.changed", "Erin Tech", { role: ["employee", "admin"], store: ["North", "South"] })
   === "changed Erin Tech: role employee → admin; store North → South");
 check("a store set for the first time", say("person.changed", "Erin", { store: [null, "North"] }) === "changed Erin: store none → North");

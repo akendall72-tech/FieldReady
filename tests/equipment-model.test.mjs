@@ -8,6 +8,7 @@ import {
   isFactoryIntegrated, steeringFor, choices, hasCorrectionLevel, serviceGroups, featureChanges, featureStates, machineName,
   findCustomers, canHaveGuidance, hasPlanterTechnology, questionsFor, answerChoices, cleanAnswers,
   softwareFits, softwareFor, softwareAfterSystemChange,
+  tiesSubscriptionsToReceivers, isReceiver, receiverSummary, receiverMoveTargets, subscriptionProblems, moveQuestion,
 } from "../js/equipment-model.js";
 
 let passed = 0;
@@ -148,6 +149,36 @@ const fleet = [{ customer_id: "a", manufacturer: "Kinze", model_name: "3660", se
 check("search finds a customer by their machine's serial", findCustomers(customers, fleet, { search: "k-16" }).map((c) => c.id).join() === "a");
 check("archived customers are hidden unless asked", findCustomers(customers, fleet).length === 1 && findCustomers(customers, fleet, { archived: true }).length === 2);
 check("a store filter keeps that store's customers", findCustomers(customers, fleet, { store: "south", archived: true }).map((c) => c.id).join() === "b");
+
+// GNSS receivers and subscriptions (the app's Machine.tiesSubscriptionsToReceivers and receiverMoveTargets)
+const receiverRows = [...rows,
+  { list: "equipment_type", value: "planter", label: "Planter", sort_order: 1, active: true, details: { guidance: false } },
+  { list: "receiver_correction_level", value: "high", label: "High (RTK)", sort_order: 0, active: true, details: {} },
+];
+const ptxTractor = { id: "m-ptx", customer_id: "c1", equipment_type: "tractor", guidance_system: "ptx", manufacturer: "MF", model_name: "7S.180" };
+const fendtTractor = { id: "m-fendt", customer_id: "c1", equipment_type: "tractor", guidance_system: "fendtGuide", manufacturer: "Fendt", model_name: "724" };
+check("aftermarket guidance ties subscriptions to receivers", tiesSubscriptionsToReceivers(receiverRows, ptxTractor));
+check("factory guidance keeps them on the machine", !tiesSubscriptionsToReceivers(receiverRows, fendtTractor));
+check("types without guidance don't", !tiesSubscriptionsToReceivers(receiverRows, { equipment_type: "planter", guidance_system: "ptx" }));
+check("only receivers are receivers", isReceiver({ kind: "receiver" }) && !isReceiver({ kind: "display" }) && !isReceiver(null));
+check("a receiver in a line", receiverSummary(receiverRows, { model_name: "AG-25", serial_number: "1234", correction_level: "high" }) === "AG-25 · S/N 1234 · High (RTK)");
+check("…leaving out what isn't known", receiverSummary(receiverRows, { model_name: "", serial_number: "", correction_level: "unknown" }) === "GNSS receiver");
+const farmMachines = [
+  ptxTractor, fendtTractor,
+  { id: "m-planter", customer_id: "c1", equipment_type: "planter", manufacturer: "Kinze", model_name: "3660" },
+  { id: "m-old", customer_id: "c1", equipment_type: "tractor", manufacturer: "MF", model_name: "6499", archived_at: "2026-01-01" },
+  { id: "m-neighbor", customer_id: "c2", equipment_type: "tractor", manufacturer: "Case", model_name: "Magnum" },
+  { id: "m-raven", customer_id: "c1", equipment_type: "tractor", guidance_system: "raven", manufacturer: "Case", model_name: "Puma" },
+];
+check("a receiver moves only to the customer's other active guidance machines, by name",
+  receiverMoveTargets(receiverRows, farmMachines, ptxTractor).map((m) => m.id).join() === "m-raven,m-fendt");
+check("…and nowhere without a customer", receiverMoveTargets(receiverRows, farmMachines, { id: "x", customer_id: null }).length === 0);
+check("an aftermarket subscription needs its receiver", subscriptionProblems(receiverRows, ptxTractor, { component_id: null }).length === 1
+  && subscriptionProblems(receiverRows, ptxTractor, { component_id: "r1" }).length === 0);
+check("a factory one doesn't", subscriptionProblems(receiverRows, fendtTractor, { component_id: null }).length === 0);
+check("the move question names what moves", moveQuestion("AG-25", 1, "Fendt 724", "MF 7S.180") === "Move the AG-25 receiver and its 1 subscription from Fendt 724 to MF 7S.180?"
+  && moveQuestion("AG-25", 2, "A", "B") === "Move the AG-25 receiver and its 2 subscriptions from A to B?"
+  && moveQuestion("AG-25", 0, "A", "B") === "Move the AG-25 receiver from A to B?");
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

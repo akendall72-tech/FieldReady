@@ -194,6 +194,53 @@ export const labelFor = (rows, list, value) => rows.find((row) => row.list === l
 export const hasCorrectionLevel = (rows, kind) =>
   rows.some((row) => row.list === "component_kind" && row.value === kind && row.details?.correctionLevel === true);
 
+// ---------------------------------------------------------------- GNSS receivers and subscriptions (2026-11-20)
+// On aftermarket guidance a correction subscription belongs to a GNSS receiver, which can move to
+// another of the customer's machines with its subscriptions; on factory guidance it stays with the
+// machine. Mirrors the app (Machine.tiesSubscriptionsToReceivers, receiverMoveTargets,
+// SubscriptionFormView.receiverRuleMet); the database keeps a tied subscription on its receiver's
+// machine and refuses a move to another customer (migrations/20261120100000_subscription_receivers.sql).
+
+/** Whether this machine's subscriptions belong to its GNSS receivers (aftermarket guidance). */
+export const tiesSubscriptionsToReceivers = (rows, machine) =>
+  canHaveGuidance(rows, machine?.equipment_type ?? "tractor") && !isFactoryIntegrated(rows, machine?.guidance_system);
+
+/** A GNSS receiver: the only kind a subscription can be tied to (the database checks the same kind). */
+export const isReceiver = (component) => component?.kind === "receiver";
+
+/** A receiver in a line: "AG-25 · S/N 1234 · High (RTK)" (unknown parts left out). */
+export function receiverSummary(rows, receiver) {
+  const level = receiver?.correction_level && receiver.correction_level !== "unknown"
+    ? labelFor(rows, "receiver_correction_level", receiver.correction_level) : null;
+  return [
+    String(receiver?.model_name ?? "").trim() || "GNSS receiver",
+    String(receiver?.serial_number ?? "").trim() ? `S/N ${String(receiver.serial_number).trim()}` : null,
+    level,
+  ].filter(Boolean).join(" · ");
+}
+
+/** Where one of this machine's receivers can move: the same customer's other active machines that can have guidance, by name. */
+export function receiverMoveTargets(rows, machines, machine) {
+  if (!machine?.customer_id) return [];
+  return machines
+    .filter((m) => m.id !== machine.id && m.customer_id === machine.customer_id && !m.archived_at && canHaveGuidance(rows, m.equipment_type ?? "tractor"))
+    .sort((a, b) => machineName(a).localeCompare(machineName(b)) || String(a.id).localeCompare(String(b.id)));
+}
+
+/** What a subscription still needs before it's saved: on aftermarket guidance, its receiver. */
+export function subscriptionProblems(rows, machine, subscription) {
+  if (tiesSubscriptionsToReceivers(rows, machine) && !subscription?.component_id) return ["Choose the receiver this subscription belongs to."];
+  return [];
+}
+
+/** "Move the AG-25 receiver and its 1 subscription from Fendt 724 to MF 7S.180?" */
+export function moveQuestion(receiverName, subscriptions, from, to) {
+  const count = subscriptions === 1 ? "its 1 subscription" : `its ${subscriptions} subscriptions`;
+  return subscriptions
+    ? `Move the ${receiverName} receiver and ${count} from ${from} to ${to}?`
+    : `Move the ${receiverName} receiver from ${from} to ${to}?`;
+}
+
 /** Listed correction services for a correction type, grouped under their heading, in order. */
 export function serviceGroups(rows, correctionType) {
   const groups = [];

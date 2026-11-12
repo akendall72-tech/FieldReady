@@ -602,7 +602,7 @@ export async function deleteMachine(id) {
 }
 
 const COMPONENT_COLUMNS = ["kind", "model_name", "serial_number", "firmware_version", "correction_level", "verification", "notes"];
-const SUBSCRIPTION_COLUMNS = ["provider", "service_name", "correction_type", "account_reference", "expiration_date", "source", "checked_on", "notes"];
+const SUBSCRIPTION_COLUMNS = ["provider", "service_name", "correction_type", "account_reference", "expiration_date", "source", "checked_on", "notes", "component_id"];
 
 async function saveChild(table, columns, machineId, row) {
   const values = Object.fromEntries(columns.map((column) => [column, row[column] ?? null]));
@@ -616,6 +616,25 @@ async function saveChild(table, columns, machineId, row) {
 export const saveComponent = (machineId, component) => saveChild("technology_components", COMPONENT_COLUMNS, machineId, component);
 export const saveSubscription = (machineId, subscription) => saveChild("correction_subscriptions", SUBSCRIPTION_COLUMNS, machineId, subscription);
 export const deleteComponent = (id) => deleteRecord("technology_components", id, "component");
+
+/**
+ * Moves a GNSS receiver to another of the customer's machines. The database takes its tied
+ * subscriptions along, refuses another customer's machine, and records the move in the activity log.
+ */
+export async function moveComponent(id, machineId) {
+  const rows = unwrap(await supabase.from("technology_components").update({ machine_id: machineId }).eq("id", id).select("id"));
+  if (rows.length === 0) throw new Error("The receiver wasn't moved. Your access may not allow it.");
+}
+
+/** A customer's machines (to move a receiver between), oldest first. */
+export async function loadCustomerMachines(customerId) {
+  return loadAll(() => supabase
+    .from("machines")
+    .select("id, customer_id, location_id, manufacturer, model_name, model_year, serial_number, equipment_type, guidance_system, archived_at")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true }));
+}
 export const deleteSubscription = (id) => deleteRecord("correction_subscriptions", id, "subscription");
 
 /** Saves feature states as updates to existing rows and inserts for new kinds (see equipment-model featureChanges). */

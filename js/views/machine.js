@@ -6,6 +6,10 @@
 // archive and delete. Customer logins (from My equipment) edit their own farm's machines, archive
 // them, and delete ones with no inspections; they never pick a customer or store. The database
 // enforces all of this; the page only hides what someone can't do.
+//
+// On aftermarket guidance (2026-11-20) each correction subscription belongs to one of the machine's
+// GNSS receivers, and a receiver can move to another of the customer's machines, taking its
+// subscriptions; on factory guidance subscriptions stay with the machine (equipment-model.js).
 
 import * as api from "../api.js";
 import { escape, attr, notice } from "../ui.js";
@@ -33,6 +37,8 @@ export function mountMachine(root, ctx) {
     /** Unsaved edits to components and subscriptions, by id ("new" for one being added). */
     components: {},
     subscriptions: {},
+    /** The customer's machines, for moving a receiver between them. */
+    farmMachines: [],
     busy: false,
     loadError: null,
   };
@@ -46,6 +52,9 @@ export function mountMachine(root, ctx) {
     : model.canManage(viewer, state.machine.location_id));
   /** The type's settings decide which technology the machine records (the app's rules). */
   const hasGuidance = () => model.canHaveGuidance(rows, state.draft.equipment_type);
+  /** Aftermarket guidance: subscriptions belong to a receiver (from the saved machine, not unsaved edits). */
+  const tiesToReceivers = () => Boolean(state.machine) && model.tiesSubscriptionsToReceivers(rows, state.machine);
+  const receivers = () => (state.machine?.technology_components ?? []).filter(model.isReceiver);
   const isDirty = () => JSON.stringify(state.draft) !== state.saved
     || Object.keys(state.components).length > 0 || Object.keys(state.subscriptions).length > 0;
   const storeName = (id) => stores.find((s) => s.id === id)?.name ?? "Unknown store";
@@ -61,12 +70,17 @@ export function mountMachine(root, ctx) {
     };
   }
 
+  async function loadFarm() {
+    state.farmMachines = state.machine?.customer_id ? await api.loadCustomerMachines(state.machine.customer_id) : [];
+  }
+
   async function load(id) {
     state.busy = true;
     try {
       state.machine = await api.loadMachine(id);
       state.draft = draftFrom(state.machine);
       state.saved = JSON.stringify(state.draft);
+      await loadFarm();
       state.loadError = null;
     } catch (error) {
       state.loadError = api.describe(error);
@@ -263,7 +277,26 @@ export function mountMachine(root, ctx) {
           </label>
         </div>
         <label>Notes <input data-component="${key}" data-part-field="notes" value="${escape(c.notes ?? "")}"${disabled()}></label>
+        ${id !== "new" && model.isReceiver(c) && tiesToReceivers() ? receiverMove(id) : ""}
         ${partTools("component", id, pending)}
+      </div>`;
+  }
+
+  /** A receiver's subscriptions, and Move to… another of the customer's machines that can have guidance. */
+  function receiverMove(id) {
+    const key = escape(id);
+    const count = (state.machine.correction_subscriptions ?? []).filter((s) => s.component_id === id).length;
+    const targets = model.receiverMoveTargets(rows, state.farmMachines, state.machine);
+    return `
+      <div class="receiver-move">
+        <span class="hint">${count === 1 ? "1 subscription belongs" : `${count} subscriptions belong`} to this receiver and move${count === 1 ? "s" : ""} with it.</span>
+        ${editable() && targets.length ? `
+          <label class="inline">Move to
+            <select data-move="${key}"${attr("disabled", state.busy)}>
+              <option value="">Choose a machine</option>
+              ${targets.map((m) => `<option value="${escape(m.id)}">${escape(`${model.machineName(m)} · ${model.labelFor(rows, "guidance_system", m.guidance_system ?? "other")}`)}</option>`).join("")}
+            </select></label>
+          <button class="secondary" data-action="move-receiver" data-id="${key}"${attr("disabled", state.busy)}>Move</button>` : ""}
       </div>`;
   }
 
@@ -309,6 +342,7 @@ export function mountMachine(root, ctx) {
     const pending = Boolean(state.subscriptions[id]);
     return `
       <div class="part-row${id === "new" ? " new" : ""}">
+        ${receiverChoice(s, key)}
         <div class="part-grid">
           <label>Correction type
             <select data-subscription="${key}" data-part-field="correction_type"${disabled()}>
@@ -337,6 +371,23 @@ export function mountMachine(root, ctx) {
         <label>Notes <input data-subscription="${key}" data-part-field="notes" value="${escape(s.notes ?? "")}"${disabled()}></label>
         ${partTools("subscription", id, pending)}
       </div>`;
+  }
+
+  /** Aftermarket guidance: which GNSS receiver a subscription belongs to (required). Factory guidance: a note. */
+  function receiverChoice(s, key) {
+    if (!tiesToReceivers()) {
+      return hasGuidance() ? '<p class="hint receiver-note">Goes with the machine (factory guidance).</p>' : "";
+    }
+    const list = receivers();
+    const chosen = s.component_id ?? "";
+    return `
+      <label class="receiver-choice">Receiver
+        <select data-subscription="${key}" data-part-field="component_id"${disabled()}>
+          ${chosen === "" ? '<option value="" selected>Choose a receiver</option>' : ""}
+          ${list.map((r) => `<option value="${escape(r.id)}"${attr("selected", r.id === chosen)}>${escape(model.receiverSummary(rows, r))}</option>`).join("")}
+        </select>
+      </label>
+      ${list.length ? "" : '<p class="hint">Add the GNSS receiver under Components first; the subscription belongs to it and moves with it.</p>'}`;
   }
 
   function manageCard() {
@@ -398,7 +449,7 @@ export function mountMachine(root, ctx) {
       store[id] = next;
       // Redraw when the fields shown depend on the change (always a picker, so focus comes back
       // cleanly); otherwise just show Save, so typing isn't interrupted.
-      if (["kind", "_choice", "correction_type"].includes(field)) {
+      if (["kind", "_choice", "correction_type", "component_id"].includes(field)) {
         render();
         root.querySelector(`[data-${kind}="${CSS.escape(id)}"][data-part-field="${field}"]`)?.focus();
       } else {
@@ -436,14 +487,18 @@ export function mountMachine(root, ctx) {
         return render();
       case "save-component": return savePart("component", id);
       case "remove-component": return removePart("component", id);
-      case "add-subscription":
-        state.subscriptions.new = { ...BLANK_SUBSCRIPTION, correction_type: state.machine.correction ?? "unknown" };
+      case "add-subscription": {
+        // The machine's only receiver is the likely one.
+        const only = tiesToReceivers() && receivers().length === 1 ? receivers()[0].id : null;
+        state.subscriptions.new = { ...BLANK_SUBSCRIPTION, correction_type: state.machine.correction ?? "unknown", component_id: only };
         return render();
+      }
       case "cancel-subscription":
         delete state.subscriptions[id];
         return render();
       case "save-subscription": return savePart("subscription", id);
       case "remove-subscription": return removePart("subscription", id);
+      case "move-receiver": return moveReceiver(id);
       case "archive": return archive();
       case "mark-checked":
         return run(async () => {
@@ -498,6 +553,14 @@ export function mountMachine(root, ctx) {
       notice(root, "Choose a listed service, or enter a provider or service name.", "error");
       return;
     }
+    if (kind === "subscription") {
+      part.component_id = part.component_id || null;
+      const problem = model.subscriptionProblems(rows, state.machine, part)[0];
+      if (problem) {
+        notice(root, problem, "error");
+        return;
+      }
+    }
     return run(async () => {
       const save = kind === "component" ? api.saveComponent : api.saveSubscription;
       await save(state.machine.id, { ...part, id: id === "new" ? null : id });
@@ -507,8 +570,29 @@ export function mountMachine(root, ctx) {
     });
   }
 
+  function moveReceiver(id) {
+    const receiver = (state.machine.technology_components ?? []).find((c) => c.id === id);
+    const target = state.farmMachines.find((m) => m.id === root.querySelector(`[data-move="${CSS.escape(id)}"]`)?.value);
+    if (!receiver || !target) {
+      notice(root, "Choose the machine to move the receiver to.", "error");
+      return;
+    }
+    const count = (state.machine.correction_subscriptions ?? []).filter((s) => s.component_id === id).length;
+    const name = String(receiver.model_name ?? "").trim() || "GNSS";
+    if (!confirm(model.moveQuestion(name, count, model.machineName(state.machine), model.machineName(target)))) return;
+    return run(async () => {
+      await api.moveComponent(id, target.id);
+      delete state.components[id];
+      await reload();
+      await loadFarm();
+      return `Moved to ${model.machineName(target)}${count ? ", with its subscriptions" : ""}. Phones pick up the change at their next sync.`;
+    });
+  }
+
   function removePart(kind, id) {
-    if (!confirm(`Remove this ${kind}?`)) return;
+    const count = kind === "component" ? (state.machine.correction_subscriptions ?? []).filter((s) => s.component_id === id).length : 0;
+    if (count && !confirm(`Remove this receiver? Its ${count === 1 ? "subscription stays" : `${count} subscriptions stay`} on this machine, not tied to a receiver.`)) return;
+    if (!count && !confirm(`Remove this ${kind}?`)) return;
     return run(async () => {
       await (kind === "component" ? api.deleteComponent(id) : api.deleteSubscription(id));
       delete (kind === "component" ? state.components : state.subscriptions)[id];

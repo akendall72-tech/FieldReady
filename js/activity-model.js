@@ -11,7 +11,7 @@ export const ACTIVITY_GROUPS = [
   { id: "stores", label: "Stores", prefixes: ["store.", "contact.", "organization."] },
   { id: "forms", label: "Forms", prefixes: ["form."] },
   { id: "options", label: "Options", prefixes: ["option."] },
-  { id: "records", label: "Records", prefixes: ["customer.", "machine.", "inspection."] },
+  { id: "records", label: "Records", prefixes: ["customer.", "machine.", "inspection.", "receiver."] },
   { id: "promotions", label: "Promotions", prefixes: ["promotion.", "lead."] },
   { id: "emails", label: "Emails", prefixes: ["email."] },
 ];
@@ -101,6 +101,7 @@ export function describeActivity(entry) {
     case "lead.notInterested": return `marked ${subject} not interested in ${d.offer ?? "an offer"}`;
     case "customer.deleted": return `deleted the customer ${subject}`;
     case "machine.deleted": return `deleted the machine ${subject}`;
+    case "receiver.moved": return `moved receiver ${subject}${d.serial ? ` (S/N ${d.serial})` : ""} from ${d.from ?? "a machine"} to ${d.to ?? "another machine"}`;
     case "inspection.deleted": return `deleted an inspection${entry.subject ? ` (${entry.subject})` : ""}`;
     default: return `${entry.action}${entry.subject ? `: ${entry.subject}` : ""}`;
   }

@@ -7,7 +7,7 @@
 import * as api from "../api.js";
 import { escape, notice } from "../ui.js";
 import * as model from "../dashboard-model.js";
-import { labelFor } from "../equipment-model.js";
+import { labelFor, receiverSummary } from "../equipment-model.js";
 
 const STAFF_PAGE = 6;
 const MORE = 10;
@@ -371,6 +371,7 @@ export function mountDashboard(root, { profile }) {
         <span class="renewal-main">
           <strong>${escape(row.service_name || row.provider || "Correction subscription")}</strong>
           <span class="meta">${escape([row.service_name && row.provider ? row.provider : "", where].filter(Boolean).join(" · "))}</span>
+          ${row.component_id ? `<span class="meta">${escape(`Receiver ${receiverSummary(state.options, { model_name: row.receiver_model, serial_number: row.receiver_serial, correction_level: row.receiver_correction_level })}`)}</span>` : ""}
         </span>
         <span class="renewal-date">${escape(model.subscriptionDateWords(row.expiration_date, state.today))}</span>
       </li>`;
