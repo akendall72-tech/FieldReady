@@ -160,6 +160,7 @@ export const SYMBOLS = [
   { value: "rays", label: "Rays" },
   { value: "square.3.layers.3d.down.right", label: "Layers" },
   { value: "arrow.up.and.down.square", label: "Lift" },
+  { value: "truck.box", label: "Truck" },
   { value: "wrench.and.screwdriver", label: "Tools" },
 ];
 
