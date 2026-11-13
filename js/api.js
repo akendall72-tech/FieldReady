@@ -299,6 +299,17 @@ export async function callPeople(action, payload) {
   throw error;
 }
 
+/**
+ * The signed-in person's organization: its level, staff login limit (null: none), and staff logins
+ * in use (public.staff_allowance), as { level, staff_limit, used }. Null when it can't be read, such
+ * as before the organization levels migration, so People & stores never depends on it.
+ */
+export async function loadStaffAllowance() {
+  const { data, error } = await supabase.rpc("staff_allowance");
+  if (error) return null;
+  return (Array.isArray(data) ? data[0] : data) ?? null;
+}
+
 /** Whether customer logins can do inspections in the app (the organization's switch, on by default). */
 export async function loadCustomerInspections(organizationId) {
   const row = unwrap(await supabase.from("organizations").select("customer_inspections").eq("id", organizationId).maybeSingle());
@@ -312,7 +323,7 @@ export async function saveCustomerInspections(organizationId, on) {
 }
 
 /** The people server function this website expects: its VERSION (supabase/functions/people/index.ts). */
-export const EXPECTED_FUNCTION_VERSION = "2026-11-24";
+export const EXPECTED_FUNCTION_VERSION = "2026-11-28";
 
 /** The deployed people function's version, or null when it predates the version check. */
 export async function functionVersion() {

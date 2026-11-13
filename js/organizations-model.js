@@ -2,11 +2,17 @@
 // page code, so they're tested on their own (tests/organizations-model.test.mjs). The `people`
 // server function (supabase/functions/people in FieldReadyApp) has the final say.
 
-import { isEmail } from "./people-model.js";
+import { isEmail, LEVELS, levelInfo, levelLabel } from "./people-model.js";
+
+export { LEVELS, levelInfo, levelLabel };
 
 const clean = (text) => String(text ?? "").trim();
 
-export const blankOrganization = () => ({ name: "", storeName: "", ownerName: "", ownerEmail: "" });
+/** A new organization's form: text fields, and its level as text ("1" to "5"). */
+export const blankOrganization = () => ({ name: "", storeName: "", ownerName: "", ownerEmail: "", level: "1" });
+
+/** Whether anything has been typed into a new organization's form (its level always has a value). */
+export const formStarted = (form) => ["name", "storeName", "ownerName", "ownerEmail"].some((field) => clean(form[field]));
 
 /** What stops a new organization from being created, in plain words. Empty when it can be. */
 export function newOrganizationProblems(form, organizations = []) {
@@ -17,6 +23,7 @@ export function newOrganizationProblems(form, organizations = []) {
   else if (organizations.some((o) => clean(o.name).toLowerCase() === name.toLowerCase())) found.push("An organization with that name already exists.");
   if (!clean(form.storeName)) found.push("Enter the first store's name.");
   if (!clean(form.ownerName)) found.push("Enter the owner's name.");
+  if (!LEVELS.some((l) => String(l.level) === String(form.level ?? "1"))) found.push("Choose a level.");
   if (!isEmail(email)) found.push("Enter a valid email address for the owner.");
   else if (organizations.some((o) => o.owners.some((owner) => owner.email === email))) {
     found.push("That email already owns an organization. Each login belongs to one organization.");
@@ -37,15 +44,26 @@ export function renameProblems(name, organization, organizations = []) {
 
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 
-/** "2 stores · 5 staff · 1 customer login": stores in use and people who can sign in. */
+/** "5 of 50 staff", "250 staff" (no limit), or "63 of 50 staff, over its level". */
+export function staffLine(staff, limit) {
+  if (limit === null || limit === undefined) return `${staff} staff`;
+  return `${staff} of ${limit} staff${staff > limit ? ", over its level" : ""}`;
+}
+
+/** "Level 1 · 2 stores · 5 of 50 staff · 1 customer login": its level, stores in use, and people who can sign in. */
 export function summary(organization) {
   const stores = organization.stores.filter((store) => store.active).length;
+  const level = levelInfo(organization.level);
   return [
+    `Level ${level.level}`,
     plural(stores, "store", "stores"),
-    `${organization.staff} staff`,
+    staffLine(organization.staff, organization.staffLimit === undefined ? level.limit : organization.staffLimit),
     plural(organization.customerLogins, "customer login", "customer logins"),
   ].join(" · ");
 }
+
+/** The smallest level that holds this many staff logins. */
+export const levelFor = (staff) => LEVELS.find((l) => l.limit === null || staff <= l.limit).level;
 
 /** Where an owner's sign-in stands. */
 export function ownerStatus(owner) {

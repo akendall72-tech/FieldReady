@@ -4,7 +4,7 @@
 //   $JSC -m tests/people-model.test.mjs
 
 import {
-  rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel,
+  rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel, staffRoom, levelLabel, levelInfo,
   canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, canEditCustom, canGiveCustom, seesPromotions,
 } from "../js/people-model.js";
 
@@ -87,6 +87,11 @@ check("Promotions is for owners, promotions managers, and lead managers", seesPr
   check("others need a store", newPersonProblems({ ...ok, location_id: null }, owner, people).includes("Choose a store."));
   check("admins can't add admins", newPersonProblems({ ...ok, role: "admin" }, admin, people).includes("Choose a role."));
   check("emails must look right", newPersonProblems({ ...ok, email: "pat" }, owner, people).includes("Enter a valid email address."));
+  const full = { level: 1, staff_limit: 50, used: 50 };
+  check("a full level takes no new staff login", newPersonProblems(ok, owner, people, [], full).some((p) => p.includes("allows 50 staff logins")));
+  check("…but has room for one more below it", newPersonProblems(ok, owner, people, [], { ...full, used: 49 }).length === 0);
+  check("…and Level 5 has no limit", newPersonProblems(ok, owner, people, [], { level: 5, staff_limit: null, used: 900 }).length === 0);
+  check("…nor does an unknown allowance", newPersonProblems(ok, owner, people, [], null).length === 0);
   check("no one is added twice", newPersonProblems({ ...ok, email: "TECH@example.com" }, owner, people).some((p) => p.includes("already on the list")));
   check("waiting invitations are caught", newPersonProblems(ok, owner, people, [{ email: "pat@example.com" }]).some((p) => p.includes("waiting for a login")));
   check("names are required", newPersonProblems({ ...ok, full_name: " " }, owner, people).includes("Enter their name."));
@@ -108,6 +113,14 @@ check("role labels", roleLabel("admin") === "Admin");
   check("passwords are long enough for the server", real.length >= 13 && /^[A-Z][a-z]+-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(real));
   check("no look-alike characters", !/[01OIL]/.test(real.split("-").slice(1).join("")));
 }
+
+// Staff logins and the organization's level
+check("nothing to say before it's known", staffRoom(null).line === "" && !staffRoom(null).full);
+check("room left", staffRoom({ level: 1, staff_limit: 50, used: 12 }).line === "12 of 50 staff logins in use (Level 1). Customer logins don't count.");
+check("full", staffRoom({ level: 1, staff_limit: 50, used: 50 }).full && staffRoom({ level: 1, staff_limit: 50, used: 50 }).line.startsWith("All 50 staff logins of Level 1 are in use."));
+check("over after a lower level", staffRoom({ level: 1, staff_limit: 50, used: 63 }).over && staffRoom({ level: 1, staff_limit: 50, used: 63 }).line.includes("Nobody loses access"));
+check("no limit", !staffRoom({ level: 5, staff_limit: null, used: 250 }).full && staffRoom({ level: 5, staff_limit: null, used: 250 }).line.includes("no limit"));
+check("levels read as ranges", levelLabel(1) === "Level 1 (up to 50 staff)" && levelInfo(9).level === 1);
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

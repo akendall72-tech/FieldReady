@@ -85,11 +85,58 @@ export function permissions(viewer, person, people = []) {
   return none;
 }
 
+/**
+ * Organization levels: how many staff logins (owners, admins, and employees with access on) each
+ * allows. Customer logins never count. Mirrors private.staff_limit in
+ * supabase/migrations/…_organization_levels.sql; only Prime Theory Labs sets a level.
+ */
+export const LEVELS = [
+  { level: 1, limit: 50, range: "up to 50 staff" },
+  { level: 2, limit: 100, range: "51–100 staff" },
+  { level: 3, limit: 150, range: "101–150 staff" },
+  { level: 4, limit: 200, range: "151–200 staff" },
+  { level: 5, limit: null, range: "more than 200 staff" },
+];
+
+/** A level's details (Level 1 for anything unknown). */
+export const levelInfo = (level) => LEVELS.find((l) => l.level === Number(level)) ?? LEVELS[0];
+
+/** "Level 2 (51–100 staff)". */
+export const levelLabel = (level) => `Level ${levelInfo(level).level} (${levelInfo(level).range})`;
+
+/**
+ * Where the organization stands against its level, from public.staff_allowance() ({ level,
+ * staff_limit, used }, or null before it's known): whether a new staff login fits, and a line for
+ * People & stores.
+ */
+export function staffRoom(allowance) {
+  if (!allowance) return { full: false, over: false, line: "" };
+  const { level, staff_limit: limit, used } = allowance;
+  const name = `Level ${levelInfo(level).level}`;
+  if (limit === null || limit === undefined) {
+    return { full: false, over: false, line: `${used} staff logins in use. ${name} has no limit. Customer logins don't count.` };
+  }
+  if (used > limit) {
+    return { full: true, over: true, line: `${used} staff logins are on, more than ${name}'s ${limit}. Nobody loses access, but new staff logins wait until fewer than ${limit} are on. Turn off access for people who no longer need it, or contact Prime Theory Labs to move up a level.` };
+  }
+  if (used >= limit) {
+    return { full: true, over: false, line: `All ${limit} staff logins of ${name} are in use. To add someone, turn off access for someone who no longer needs it, or contact Prime Theory Labs to move up a level. Customer logins don't count.` };
+  }
+  return { full: false, over: false, line: `${used} of ${limit} staff logins in use (${name}). Customer logins don't count.` };
+}
+
 export const isEmail = (text) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(text ?? "").trim());
 
-/** What stops a new person from being added, in plain words. Empty when they can be. */
-export function newPersonProblems(person, viewer, people = [], invitations = []) {
+/**
+ * What stops a new person from being added, in plain words. Empty when they can be. `allowance` is
+ * the organization's public.staff_allowance() row, when known: a full level takes no new staff login.
+ */
+export function newPersonProblems(person, viewer, people = [], invitations = [], allowance = null) {
   const found = [];
+  const room = staffRoom(allowance);
+  if (room.full && person.role !== "customer") {
+    found.push(`Your organization's level allows ${allowance.staff_limit} staff logins, and they're all in use. Turn off access for someone who no longer needs it, or contact Prime Theory Labs to move up a level.`);
+  }
   const email = String(person.email ?? "").trim().toLowerCase();
   if (!String(person.full_name ?? "").trim()) found.push("Enter their name.");
   if (!isEmail(email)) found.push("Enter a valid email address.");

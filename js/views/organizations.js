@@ -1,6 +1,7 @@
 // The Organizations page, only for platform admins (public.platform_admins): every dealer using
-// Field Ready, setting up a new one with its first owner, who runs it from there, and renaming one
-// (only platform admins can, since 20261124100000_organization_names.sql). Everything
+// Field Ready, setting up a new one with its first owner, who runs it from there, renaming one
+// (only platform admins can, since 20261124100000_organization_names.sql), and setting its level
+// (how many staff logins it can have, 20261128100000_organization_levels.sql). Everything
 // goes through the `people` server function; the page shows names and counts only, never another
 // organization's records.
 
@@ -19,6 +20,8 @@ export function mountOrganizations(root, { profile }) {
     handover: null,
     /** The organization being renamed: { id, name } (the name as typed), or null. */
     renaming: null,
+    /** The organization whose level is being changed: { id, level } (as chosen, text), or null. */
+    levelling: null,
     busy: false,
     loadError: null,
   };
@@ -106,7 +109,7 @@ export function mountOrganizations(root, { profile }) {
   function addForm() {
     const form = state.form;
     const problems = model.newOrganizationProblems(form, state.organizations);
-    const started = Object.values(form).some((value) => value.trim());
+    const started = model.formStarted(form);
     return `
       <form class="card" data-add-form>
         <h2>New organization</h2>
@@ -115,17 +118,23 @@ export function mountOrganizations(root, { profile }) {
           <label>First store <input data-new="storeName" value="${escape(form.storeName)}" autocomplete="off"></label>
           <label>Owner's name <input data-new="ownerName" value="${escape(form.ownerName)}" autocomplete="off"></label>
           <label>Owner's email <input data-new="ownerEmail" type="email" value="${escape(form.ownerEmail)}" autocomplete="off"></label>
+          <label>Level <select data-new="level">${levelOptions(form.level)}</select></label>
         </div>
         <p class="hint">Create makes the organization, its first store, and the owner's login, and emails the owner a link to
           choose their password. It also loads the default option lists, the Guidance forms, and the Precision Planting and
           starter Machine forms.
-          The email can't already have a Field Ready login: each login belongs to one organization.</p>
+          The email can't already have a Field Ready login: each login belongs to one organization. The level sets how many
+          staff logins (owners, admins, and employees) it can have; customer logins don't count. You can change it later.</p>
         <p class="form-error" data-new-problems>${started ? escape(problems[0] ?? "") : ""}</p>
         <div class="actions">
           <button class="primary" type="submit" data-submit${attr("disabled", problems.length > 0 || state.busy)}>Create Organization</button>
           <button class="secondary" type="button" data-action="cancel-add">Cancel</button>
         </div>
       </form>`;
+  }
+
+  function levelOptions(selected) {
+    return model.LEVELS.map((l) => `<option value="${l.level}"${attr("selected", String(l.level) === String(selected))}>${escape(model.levelLabel(l.level))}</option>`).join("");
   }
 
   function listCard() {
@@ -144,9 +153,11 @@ export function mountOrganizations(root, { profile }) {
         ${state.renaming?.id === organization.id ? renameForm(organization) : `
         <div class="org-head">
           <span><strong>${escape(organization.name)}</strong>${yours}
-            <button class="link" data-action="rename" data-org="${escape(organization.id)}"${attr("disabled", state.busy || state.renaming)}>Rename</button></span>
+            <button class="link" data-action="rename" data-org="${escape(organization.id)}"${attr("disabled", state.busy || state.renaming || state.levelling)}>Rename</button>
+            <button class="link" data-action="level" data-org="${escape(organization.id)}"${attr("disabled", state.busy || state.renaming || state.levelling)}>Change Level</button></span>
           <span class="hint">${escape(model.summary(organization))}${organization.createdAt ? ` · since ${escape(new Date(organization.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" }))}` : ""}</span>
         </div>`}
+        ${state.levelling?.id === organization.id ? levelForm(organization) : ""}
         <p class="hint">Stores: ${stores || "none"}</p>
         <ol class="org-owners">
           ${organization.owners.map((owner) => `
@@ -159,6 +170,38 @@ export function mountOrganizations(root, { profile }) {
             </li>`).join("") || '<li class="hint">No owner yet.</li>'}
         </ol>
       </li>`;
+  }
+
+  function levelForm(organization) {
+    const chosen = model.levelInfo(state.levelling.level);
+    const over = chosen.limit !== null && organization.staff > chosen.limit;
+    return `
+      <form class="rename-form" data-level-form>
+        <label>Level <select data-level>${levelOptions(state.levelling.level)}</select></label>
+        <p class="hint">${escape(organization.name)} has ${escape(String(organization.staff))} staff logins on now. Customer logins don't count.
+          ${over ? `That's more than Level ${chosen.level} allows: nobody loses access, but they can't add staff logins or turn
+          access back on until fewer than ${chosen.limit} are on.` : ""}</p>
+        <div class="actions">
+          <button class="primary" type="submit"${attr("disabled", state.busy)}>Save Level</button>
+          <button class="secondary" type="button" data-action="cancel-level">Cancel</button>
+        </div>
+      </form>`;
+  }
+
+  function setLevel() {
+    const organization = state.organizations.find((o) => o.id === state.levelling?.id);
+    if (!organization) return;
+    const level = Number(state.levelling.level);
+    if (level === Number(organization.level ?? 1)) {
+      state.levelling = null;
+      return render();
+    }
+    return run(async () => {
+      await api.callPeople("setOrganizationLevel", { organizationId: organization.id, level });
+      state.levelling = null;
+      state.organizations = (await api.callPeople("listOrganizations", {})).organizations ?? [];
+      return `${organization.name} is now ${model.levelLabel(level)}.`;
+    });
   }
 
   function renameForm(organization) {
@@ -217,7 +260,7 @@ export function mountOrganizations(root, { profile }) {
     if (model.newOrganizationProblems(form, state.organizations).length) return;
     const details = {
       name: form.name.trim(), storeName: form.storeName.trim(), ownerName: form.ownerName.trim(),
-      ownerEmail: form.ownerEmail.trim().toLowerCase(),
+      ownerEmail: form.ownerEmail.trim().toLowerCase(), level: Number(form.level),
     };
     return run(async () => {
       const answer = await api.callPeople("createOrganization", details);
@@ -260,6 +303,12 @@ export function mountOrganizations(root, { profile }) {
 
   /** Keeps the form's button and first problem current without redrawing (typing isn't interrupted). */
   function onInput(event) {
+    if (event.target.matches("[data-level]") && state.levelling) {
+      state.levelling.level = event.target.value;
+      render();
+      root.querySelector("[data-level]")?.focus();
+      return;
+    }
     if (event.target.matches("[data-rename]") && state.renaming) {
       state.renaming.name = event.target.value;
       const organization = state.organizations.find((o) => o.id === state.renaming.id);
@@ -280,6 +329,7 @@ export function mountOrganizations(root, { profile }) {
     event.preventDefault();
     if (event.target.closest("[data-add-form]")) return createOrganization();
     if (event.target.closest("[data-rename-form]")) return renameOrganization();
+    if (event.target.closest("[data-level-form]")) return setLevel();
   }
 
   async function onClick(event) {
@@ -309,6 +359,17 @@ export function mountOrganizations(root, { profile }) {
       case "cancel-rename":
         state.renaming = null;
         return render();
+      case "level": {
+        const organization = state.organizations.find((o) => o.id === element.dataset.org);
+        if (!organization) return;
+        state.levelling = { id: organization.id, level: String(organization.level ?? 1) };
+        render();
+        root.querySelector("[data-level]")?.focus();
+        return;
+      }
+      case "cancel-level":
+        state.levelling = null;
+        return render();
       case "reset-owner": return resetOwner(element.dataset.id, element.dataset.org);
       case "reset-two-step": return resetTwoStep(element.dataset.id, element.dataset.name);
       case "dismiss-handover":
@@ -335,7 +396,7 @@ export function mountOrganizations(root, { profile }) {
 
   /** Whether it's fine to leave: nothing half-entered and no link still to send, or the person agrees. */
   return (silent = false) => {
-    const unfinished = (state.adding && Object.values(state.form).some((value) => value.trim())) || state.handover?.link;
+    const unfinished = (state.adding && model.formStarted(state.form)) || state.handover?.link;
     return !unfinished || (!silent && confirm("You have an unfinished organization or a sign-in link you haven't sent. Leave this page?"));
   };
 }

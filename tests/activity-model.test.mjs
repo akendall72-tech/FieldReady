@@ -20,7 +20,7 @@ check("People covers people, logins and two-step", groupFilter("people") === "ac
 check("Emails covers sent and failed", groupFilter("emails") === "action.like.email.*");
 const actions = ["person.changed", "person.access_off", "person.access_on", "person.removed", "login.created", "login.deleted", "two_step.reset",
   "email.sent", "email.failed", "store.added", "store.renamed", "store.closed", "store.reopened", "store.removed", "contact.added",
-  "contact.changed", "contact.removed", "organization.created", "organization.renamed", "organization.changed", "form.published", "form.retired",
+  "contact.changed", "contact.removed", "organization.created", "organization.renamed", "organization.level_changed", "organization.changed", "form.published", "form.retired",
   "option.added", "option.changed", "option.removed", "customer.deleted", "machine.deleted", "inspection.deleted",
   "promotion.published", "promotion.stopped", "lead.new", "lead.contacted", "lead.sold", "lead.notInterested", "receiver.moved"];
 const groupsOf = (action) => ACTIVITY_GROUPS.filter((g) => g.prefixes.some((p) => action.startsWith(p))).map((g) => g.id);
@@ -29,6 +29,9 @@ check("every action the database and the function record has exactly one filter"
 // Wording
 check("a receiver moved between a customer's machines", say("receiver.moved", "AG-25", { serial: "1234", from: "Fendt 724", to: "MF 7S.180" })
   === "moved receiver AG-25 (S/N 1234) from Fendt 724 to MF 7S.180");
+check("an organization's level", say("organization.level_changed", "Agri-Service", { level: [1, 2] })
+  === "changed the organization's level from Level 1 to Level 2");
+check("a new organization's level", say("organization.created", "Prairie", { store: "Main", level: 3 }) === "set up the organization Prairie with the store Main at Level 3");
 check("Records shows receiver moves", groupFilter("records").includes("action.like.receiver.*"));
 check("role and store changes", say("person.changed", "Erin Tech", { role: ["employee", "admin"], store: ["North", "South"] })
   === "changed Erin Tech: role employee → admin; store North → South");

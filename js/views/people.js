@@ -28,6 +28,8 @@ export function mountPeople(root, { profile }) {
     contacts: [],
     /** Owners: requests (made in the app) to delete a login. */
     deletionRequests: [],
+    /** The organization's level and staff logins in use (public.staff_allowance), or null before it's known. */
+    allowance: null,
     /** The store whose contacts are open (owners pick one; admins see their own). */
     contactsStore: isOwner ? null : profile.location_id,
     /** A contact being added: its store, role, and details so far. */
@@ -54,11 +56,12 @@ export function mountPeople(root, { profile }) {
   // ---------------------------------------------------------------- loading
 
   async function fetchAll() {
-    const [people, invitations, stores, contacts, deletionRequests] = await Promise.all([
+    const [people, invitations, stores, contacts, deletionRequests, allowance] = await Promise.all([
       api.loadPeople(), api.loadInvitations(), api.loadStores(), api.loadContacts(),
-      isOwner ? api.loadDeletionRequests() : [],
+      isOwner ? api.loadDeletionRequests() : [], api.loadStaffAllowance(),
     ]);
     state.deletionRequests = deletionRequests;
+    state.allowance = allowance;
     state.everyone = people;
     state.people = model.sortPeople(people.filter((person) => person.role !== "customer"));
     state.allInvitations = invitations;
@@ -101,6 +104,7 @@ export function mountPeople(root, { profile }) {
         </div>
       </div>
       ${isOwner ? "" : `<p class="callout">As an admin you add and manage the employees at ${escape(storeName(profile.location_id))}. Owners manage everyone else and the stores.</p>`}
+      ${staffRoomLine()}
       ${deletionCard()}
       ${handoverCard()}
       ${state.adding ? addForm() : ""}
@@ -113,6 +117,15 @@ export function mountPeople(root, { profile }) {
           <p class="hint">Customers of ${escape(storeName(profile.location_id))} see these people on their app's Home screen.</p>
           ${contactsPanel(profile.location_id)}
         </div>` : ""}`;
+  }
+
+  /** How many staff logins the organization's level allows and how many are in use. */
+  function staffRoomLine() {
+    const room = model.staffRoom(state.allowance);
+    if (!room.line) return "";
+    return room.full
+      ? `<p class="callout warning" data-staff-room>${escape(room.line)}</p>`
+      : `<p class="meta staff-room" data-staff-room>${escape(room.line)}</p>`;
   }
 
   // ---------------------------------------------------------------- store contacts
@@ -239,7 +252,7 @@ export function mountPeople(root, { profile }) {
 
   function addForm() {
     const person = state.newPerson;
-    const problems = model.newPersonProblems(person, viewer, state.everyone, state.allInvitations);
+    const problems = model.newPersonProblems(person, viewer, state.everyone, state.allInvitations, state.allowance);
     const isNewOwner = person.role === "owner";
     return `
       <form class="card" data-add-form>
@@ -394,7 +407,7 @@ export function mountPeople(root, { profile }) {
 
   /** Keeps the add form's button and first problem current without redrawing (typing isn't interrupted). */
   function refreshAddForm() {
-    const problems = model.newPersonProblems(state.newPerson, viewer, state.everyone, state.allInvitations);
+    const problems = model.newPersonProblems(state.newPerson, viewer, state.everyone, state.allInvitations, state.allowance);
     const area = root.querySelector("[data-new-problems]");
     if (area) area.textContent = state.newPerson.email || state.newPerson.full_name ? problems[0] ?? "" : "";
     const submit = root.querySelector("[data-submit]");
@@ -542,7 +555,7 @@ export function mountPeople(root, { profile }) {
 
   function addPerson() {
     const person = state.newPerson;
-    if (model.newPersonProblems(person, viewer, state.everyone, state.allInvitations).length) return;
+    if (model.newPersonProblems(person, viewer, state.everyone, state.allInvitations, state.allowance).length) return;
     const email = person.email.trim().toLowerCase();
     const name = person.full_name.trim();
     return run(async () => {

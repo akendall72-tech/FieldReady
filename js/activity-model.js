@@ -80,8 +80,12 @@ export function describeActivity(entry) {
     case "contact.added": return `added ${subject} as a store contact${d.role ? ` (${CONTACT_ROLES[d.role] ?? d.role}${d.store ? `, ${d.store}` : ""})` : ""}`;
     case "contact.changed": return `changed the store contact ${subject}`;
     case "contact.removed": return `removed the store contact ${subject}`;
-    case "organization.created": return `set up the organization ${subject}${d.store ? ` with the store ${d.store}` : ""}`;
+    case "organization.created": return `set up the organization ${subject}${d.store ? ` with the store ${d.store}` : ""}${d.level ? ` at Level ${d.level}` : ""}`;
     case "organization.renamed": return `renamed the organization: ${changes(d, { name: "" }).trim() || subject}`;
+    case "organization.level_changed": {
+      const level = pair(d.level);
+      return level ? `changed the organization's level from Level ${level[0]} to Level ${level[1]}` : "changed the organization's level";
+    }
     case "organization.changed": {
       const on = pair(d.customer_inspections);
       if (on) return `turned customer inspections ${on[1] ? "on" : "off"}`;

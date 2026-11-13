@@ -122,6 +122,8 @@ legend { font-weight: 700; padding: 0 6px; }
 .notice-error { background: color-mix(in srgb, var(--fault-red) 12%, var(--surface)); color: var(--fault-red); }
 .notice-info { background: var(--surface-tint); color: var(--text); }
 .callout { background: var(--surface-tint); border-radius: var(--radius); padding: 10px 14px; margin: -4px 0 16px; }
+.callout.warning { border-left: 4px solid var(--rust); }
+.staff-room { margin: -4px 0 16px; }
 
 /* ---------- checklist editor */
 
