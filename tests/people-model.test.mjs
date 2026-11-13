@@ -5,7 +5,7 @@
 
 import {
   rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel,
-  canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, seesPromotions,
+  canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, canEditCustom, canGiveCustom, seesPromotions,
 } from "../js/people-model.js";
 
 let passed = 0;
@@ -38,6 +38,14 @@ check("owners give it to admins and employees", canGiveSetup(owner, admin) && ca
 check("…not to owners or customer logins", !canGiveSetup(owner, person("owner2", "owner", null)) && !canGiveSetup(owner, person("cust", "customer", null)));
 check("…and not to themselves", !canGiveSetup(owner, owner));
 check("admins and employees can't give it", !canGiveSetup(admin, tech) && !canGiveSetup({ ...tech, can_edit_setup: true }, southTech));
+
+// The custom checklists permission (2026-11-25)
+check("owners always make custom checklists", canEditCustom(owner) && canEditCustom({ ...owner, can_edit_custom: false }));
+check("other staff only with the permission", !canEditCustom(admin) && !canEditCustom(tech) && canEditCustom({ ...tech, can_edit_custom: true }));
+check("…which is separate from forms and options", !canEditCustom({ ...tech, can_edit_setup: true }) && !canEditSetup({ ...tech, can_edit_custom: true }));
+check("customer logins never", !canEditCustom({ id: "cust", role: "customer", can_edit_custom: true }) && !canEditCustom(null));
+check("owners give it to admins and employees, not themselves or customers", canGiveCustom(owner, tech) && canGiveCustom(owner, admin)
+  && !canGiveCustom(owner, owner) && !canGiveCustom(owner, person("cust", "customer", null)) && !canGiveCustom(admin, tech));
 
 // The customer lead manager box
 check("owners always work leads", canManageLeads(owner));

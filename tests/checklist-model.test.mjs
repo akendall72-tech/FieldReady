@@ -169,6 +169,13 @@ const reviewedSource = JSON.parse(JSON.stringify(fresh));
 markReviewed(reviewedSource, "Jane Smith", "2026-11-12");
 check("a copy is a new form, not reviewed", !isReviewed(copyChecklist(reviewedSource, { title: "Combine copy", taken: new Set() })));
 check("today is a day in the person's time zone", today(new Date(2026, 0, 5, 23, 30)) === "2026-01-05");
+// Customers can see finished inspections (custom checklists, 2026-11-25)
+check("a new custom checklist starts internal", mine.customerVisible === false && fresh.customerVisible === undefined);
+const sharedCustom = { ...mine, customerVisible: true };
+check("a copy of a shared one starts internal again", copyChecklist(sharedCustom, { title: "Hitch copy", kind: "custom", taken: new Set() }).customerVisible === false);
+check("…and a shared form made from one doesn't carry the setting", copyChecklist(sharedCustom, { title: "As machine", kind: "machine", taken: new Set() }).customerVisible === undefined);
+check("the setting must be on or off", problems({ ...sharedCustom, customerVisible: "yes" }).includes("Customers can see finished inspections must be on or off.")
+  && !problems(sharedCustom).some((p) => p.includes("Customers can see")));
 check("unknown kinds are caught", problems({ ...fresh, kind: "drone" }).includes("The checklist's kind isn't one phones know."));
 check("unknown equipment types are caught", problems(fresh, { equipment_type: new Set(["tractor"]) })
   .includes("The checklist is for an equipment type phones don't know yet."));

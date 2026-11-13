@@ -38,7 +38,7 @@ export const KINDS = [
   { value: "guidance", label: "Guidance", about: "Display, receiver, steering, and correction checks. One form per guidance system: the app uses the form for the machine's system." },
   { value: "planter", label: "Precision Planting", about: "Precision Planting technology, for planters." },
   { value: "machine", label: "Machine", about: "The condition of the machine itself. One form per machine type." },
-  { value: "custom", label: "Custom", about: "Your own checklists. Only you see them and use them in the app; once you finalize an inspection with one, your store's admins, the owners, and the customer can see that inspection." },
+  { value: "custom", label: "Custom", about: "Your organization's own checklists. Everyone on staff uses the published ones in the app, and inspections with them work like any other at the store. Customers never see the checklists, and see the finished inspections only when a checklist says so." },
 ];
 
 const KIND_VALUES = new Set(KINDS.map((kind) => kind.value));
@@ -75,6 +75,10 @@ export function problems(content, known = {}) {
     if (!isText(content[field])) found.push(`The checklist is missing its ${field}.`);
   }
   if (content.kind != null && !KIND_VALUES.has(content.kind)) found.push("The checklist's kind isn't one phones know.");
+  // Phones read it as true or false (InspectionTemplate.customerVisible); anything else makes the checklist unreadable.
+  if (content.customerVisible != null && typeof content.customerVisible !== "boolean") {
+    found.push("Customers can see finished inspections must be on or off.");
+  }
   if (content.system != null) {
     if (kindOf(content) !== "guidance") found.push("Only Guidance forms are for a guidance system.");
     if (isBlank(content.system)) found.push("The Guidance form doesn't say which guidance system it's for.");
@@ -246,6 +250,7 @@ export function newChecklist({ kind, title, equipment = [], taken = new Set(), s
     sections: [{ key: "general", title: "General", summary: "", items: [] }],
   };
   if (equipment.length) content.equipment = [...equipment];
+  if (kind === "custom") content.customerVisible = false;
   content.sections[0].items.push(newCheck(content, content.sections[0]));
   return content;
 }
@@ -258,6 +263,9 @@ export function copyChecklist(source, { title, kind = kindOf(source), taken = ne
   copy.title = title.trim();
   copy.kind = kind;
   clearReview(copy);
+  // A copy starts internal; only Custom checklists have the setting.
+  if (kind === "custom") copy.customerVisible = false;
+  else delete copy.customerVisible;
   return copy;
 }
 

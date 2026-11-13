@@ -42,6 +42,17 @@ export const canGiveSetup = (viewer, person) =>
 export const canManageLeads = (profile) =>
   profile?.role === "owner" || (profile?.role !== "customer" && profile?.can_manage_leads === true);
 
+/**
+ * Whether this person makes and changes the organization's custom checklists: owners always, other
+ * staff when an owner gives them the permission. Mirrors private.can_edit_custom() in
+ * supabase/migrations/…_shared_custom_checklists.sql.
+ */
+export const canEditCustom = (profile) =>
+  profile?.role === "owner" || (profile?.role !== "customer" && profile?.can_edit_custom === true);
+
+/** Who may give or take away someone's custom checklists permission: the same rule as the forms and options one. */
+export const canGiveCustom = (viewer, person) => canGiveSetup(viewer, person);
+
 /** Who may give or take away someone's lead manager box: the same rule as the forms and options one. */
 export const canGiveLeads = (viewer, person) => canGiveSetup(viewer, person);
 

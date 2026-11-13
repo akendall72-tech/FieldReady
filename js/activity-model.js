@@ -54,6 +54,8 @@ export function describeActivity(entry) {
       if (setup) parts.push(setup[1] ? "can now edit forms and options" : "can no longer edit forms and options");
       const leads = pair(d.leads);
       if (leads) parts.push(leads[1] ? "is now a customer lead manager" : "is no longer a customer lead manager");
+      const custom = pair(d.custom);
+      if (custom) parts.push(custom[1] ? "can now make custom checklists" : "can no longer make custom checklists");
       const what = parts.filter(Boolean).join("; ");
       return `changed ${subject}${what ? `: ${what}` : ""}`;
     }

@@ -295,6 +295,7 @@ export function mountPeople(root, { profile }) {
           ${person.can_manage_promotions && person.role !== "owner" ? '<span class="tag">Promotions</span>' : ""}
           ${person.can_edit_setup && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Forms &amp; options</span>' : ""}
           ${person.can_manage_leads && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Lead manager</span>' : ""}
+          ${person.can_edit_custom && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Custom checklists</span>' : ""}
           <span>${escape(person.role === "owner" ? "Every store" : storeName(person.location_id))}</span>
           ${person.active ? "" : '<span class="access-off">Access off</span>'}
         </div>
@@ -325,6 +326,9 @@ export function mountPeople(root, { profile }) {
         ${model.canGiveSetup(viewer, { ...person, role: edits.role }) ? `
           <label class="check"><input type="checkbox" data-edit="can_edit_setup"${attr("checked", edits.can_edit_setup)}> Can edit forms and options</label>
           <p class="hint">Changes and publishes the inspection forms, and changes Machine options and Subscriptions, for every store. Uncheck it when they're done. Owners always can.</p>` : ""}
+        ${model.canGiveCustom(viewer, { ...person, role: edits.role }) ? `
+          <label class="check"><input type="checkbox" data-edit="can_edit_custom"${attr("checked", edits.can_edit_custom)}> Can make custom checklists</label>
+          <p class="hint">Makes, changes, publishes, and retires the custom checklists on Inspection forms, which everyone on staff uses in the app. Owners always can.</p>` : ""}
         ${model.canGiveLeads(viewer, { ...person, role: edits.role }) ? `
           <label class="check"><input type="checkbox" data-edit="can_manage_leads"${attr("checked", edits.can_manage_leads)}> Customer lead manager</label>
           <p class="hint">Gets a notification when a customer at their store taps I'm Interested on an offer, sees those leads, and marks them Contacted, Sold, or Not interested. Without it, staff don't see leads. Owners always can, for every store.</p>` : ""}
@@ -485,7 +489,7 @@ export function mountPeople(root, { profile }) {
         state.editing = person.id;
         state.edits = { full_name: person.full_name, role: person.role, location_id: person.location_id, active: person.active,
           can_manage_promotions: person.can_manage_promotions === true, can_edit_setup: person.can_edit_setup === true,
-          can_manage_leads: person.can_manage_leads === true };
+          can_manage_leads: person.can_manage_leads === true, can_edit_custom: person.can_edit_custom === true };
         return render();
       case "cancel-edit":
         state.editing = null;
@@ -571,6 +575,9 @@ export function mountPeople(root, { profile }) {
     }
     if (model.canGiveLeads(viewer, { ...person, role: edits.role }) && edits.can_manage_leads !== (person.can_manage_leads === true)) {
       changes.can_manage_leads = edits.can_manage_leads;
+    }
+    if (model.canGiveCustom(viewer, { ...person, role: edits.role }) && edits.can_edit_custom !== (person.can_edit_custom === true)) {
+      changes.can_edit_custom = edits.can_edit_custom;
     }
     if (Object.keys(changes).length === 0) {
       state.editing = null;

@@ -1,13 +1,16 @@
 // The inspection forms, by kind: Guidance (one form per guidance system, picked from a dropdown),
 // Precision Planting (one form), Machine (one form per equipment type, picked from a dropdown), and
-// Custom (each person's own checklists).
+// Custom (the organization's own internal checklists).
 //
 // Phones use the live (newest published) version of each form. A form is editable as soon as it's
 // open: the first change starts a draft of the next version, and changes save to it on their own.
 // Publish to Phones sends the draft out; Discard Changes goes back to what phones have. Owners, and
 // staff an owner lets edit forms and options (People & stores), change everything in the shared
-// forms and publish them; other admins look at the published forms. Custom checklists belong to
-// whoever made them (anyone on staff); only they see, edit, publish, and use them. The database
+// forms and publish them; other admins look at the published forms. Custom checklists belong to the
+// organization (2026-11-25): owners, and staff an owner lets make custom checklists, make, change,
+// publish, and retire any of them; everyone else on staff looks at the published ones and uses them in
+// the app; customers never see them. Each says whether customers see the finished inspections
+// ("customerVisible"), for past inspections too once published. The database
 // enforces all of this, so this page only hides what someone can't do. Published versions never
 // change; a retired checklist isn't offered for new inspections.
 
@@ -16,7 +19,7 @@ import { escape, attr, formatDate, notice } from "../ui.js";
 import * as model from "../checklist-model.js";
 import { usedOn, optionsIn } from "../options-model.js";
 import { canHaveGuidance, hasPlanterTechnology } from "../equipment-model.js";
-import { canEditSetup } from "../people-model.js";
+import { canEditSetup, canEditCustom } from "../people-model.js";
 
 /** The usual Precision Planting form, opened first. */
 const PREFERRED_PLANTER = "preseason-planter";
@@ -56,6 +59,8 @@ export function mountChecklist(root, { profile }) {
     loadError: null,
     /** Owners: whether customer logins can do inspections with these forms (null until loaded). */
     customerInspections: null,
+    /** Names of the people this person can see, by id, for "Made by" on custom checklists. */
+    names: {},
     /** The reviewer's name while Mark as Reviewed is open; null otherwise. */
     reviewing: null,
     /** The open form without its review mark, when the mark was loaded or set (model.reviewedBody). */
@@ -65,8 +70,8 @@ export function mountChecklist(root, { profile }) {
   const saving = { timer: null, running: null, error: null };
 
   const isCustom = () => state.kind === "custom";
-  /** Changing, making, publishing, retiring, and discarding: editors for shared forms, anyone for their own. */
-  const canManage = () => isCustom() || isEditor;
+  /** Changing, making, publishing, retiring, and discarding: forms editors for the shared forms, custom checklist makers for Custom. */
+  const canManage = () => (isCustom() ? canEditCustom(profile) : isEditor);
   /** A form with a live version or a draft can be edited; a retired one can't. */
   const editable = () => Boolean(state.draft || state.live);
   const canEditAll = () => editable() && canManage();
@@ -100,13 +105,15 @@ export function mountChecklist(root, { profile }) {
 
   /** Reads the checklist versions and option lists from the server into `state`. */
   async function fetchAll() {
-    const [rows, options, customerInspections] = await Promise.all([
+    const [rows, options, customerInspections, people] = await Promise.all([
       api.loadChecklists(), api.loadOptions(),
       isOwner ? api.loadCustomerInspections(profile.organization_id).catch(() => null) : null,
+      kinds.some((kind) => kind.value === "custom") ? api.loadPeople().catch(() => []) : [],
     ]);
     state.allRows = rows;
     state.options = options;
     state.customerInspections = customerInspections;
+    state.names = Object.fromEntries(people.map((person) => [person.id, person.full_name || person.email]));
     if (isCustom() && state.templateId && !checklists("custom").some((c) => c.id === state.templateId)) state.templateId = null;
     if (!isCustom()) state.templateId = chosenTemplate();
     openChecklist();
@@ -299,7 +306,9 @@ export function mountChecklist(root, { profile }) {
         <div class="actions">${actions.join("")}</div>
       </div>
       ${alsoFor.length ? `<p class="callout">This form is also used for ${escape(alsoFor.join(", "))}. Changes apply to all of them.</p>` : ""}
-      ${!canManage() ? `<p class="callout">Only owners, and people an owner lets edit forms and options, change these forms. You can look at them here.</p>` : ""}
+      ${!canManage() ? `<p class="callout">${isCustom()
+        ? "Only owners, and people an owner lets make custom checklists, change these checklists. You can look at them here and use them in the app."
+        : "Only owners, and people an owner lets edit forms and options, change these forms. You can look at them here."}</p>` : ""}
       ${!editable() && isCustom() && canManage() ? `<p class="callout">This checklist is retired, so it isn't offered for new inspections. Bring it back from the list.</p>` : ""}`;
   }
 
@@ -435,11 +444,14 @@ export function mountChecklist(root, { profile }) {
           <h1>Custom checklists</h1>
           <p class="meta">${escape(model.KINDS.find((kind) => kind.value === "custom").about)}</p>
         </div>
-        <div class="actions"><button class="primary" data-action="new-checklist"${attr("disabled", state.busy || state.creating)}>New Checklist</button></div>
+        ${canManage() ? `<div class="actions"><button class="primary" data-action="new-checklist"${attr("disabled", state.busy || state.creating)}>New Checklist</button></div>` : ""}
       </div>
-      ${state.creating ? createForm() : ""}
+      ${!canManage() ? '<p class="callout">Only owners, and people an owner lets make custom checklists, change these. You can look at them and use them in the app.</p>' : ""}
+      ${state.creating && canManage() ? createForm() : ""}
       <div class="card">
-        ${current.length ? `<ol class="checklist-list">${current.map(checklistRow).join("")}</ol>` : '<p class="hint">You haven\'t made any custom checklists yet. New Checklist starts one, blank or as a copy of a form.</p>'}
+        ${current.length ? `<ol class="checklist-list">${current.map(checklistRow).join("")}</ol>` : `<p class="hint">${canManage()
+          ? "There are no custom checklists yet. New Checklist starts one, blank or as a copy of a form."
+          : "There are no custom checklists yet."}</p>`}
         ${retired.length ? `
           <label class="check"><input type="checkbox" data-field="show-retired"${attr("checked", state.showRetired)}> Show retired (${retired.length})</label>
           ${state.showRetired ? `<ol class="checklist-list">${retired.map(checklistRow).join("")}</ol>` : ""}` : ""}
@@ -448,10 +460,14 @@ export function mountChecklist(root, { profile }) {
 
   function checklistRow(checklist) {
     const named = model.typesOf(checklist.content);
+    const first = checklist.rows.reduce((oldest, row) => (!oldest || row.created_at < oldest.created_at ? row : oldest), null);
+    const maker = first?.created_by === profile.id ? "you" : state.names[first?.created_by];
     const status = [
       checklist.retired ? "Retired" : checklist.live ? "On phones" : "Not published yet",
       checklist.draft && checklist.live ? "Unpublished changes" : "",
       named.length ? named.map(typeLabel).join(", ") : "Any machine",
+      checklist.content?.customerVisible === true ? "Customers see finished inspections" : "Internal",
+      maker ? `Made by ${maker}` : "",
     ].filter(Boolean);
     const id = escape(checklist.id);
     return `
@@ -461,7 +477,7 @@ export function mountChecklist(root, { profile }) {
           <span class="hint">${status.map(escape).join(" · ")}</span>
         </button>
         <span class="tools">
-          ${checklist.retired ? `<button class="link" data-action="bring-back" data-id="${id}"${attr("disabled", state.busy)}>Bring Back</button>` : ""}
+          ${checklist.retired && canManage() ? `<button class="link" data-action="bring-back" data-id="${id}"${attr("disabled", state.busy)}>Bring Back</button>` : ""}
         </span>
       </li>`;
   }
@@ -513,6 +529,9 @@ export function mountChecklist(root, { profile }) {
           ${equipmentTypes().filter((type) => type.active || named.has(type.value)).map((type) => `
             <label class="check"><input type="checkbox" data-field="checklist.equipment" data-value="${escape(type.value)}"${attr("checked", named.has(type.value))}${disabledUnless(all)}> ${escape(type.label)}</label>`).join("")}
         </div>
+        <label class="check"><input type="checkbox" data-field="checklist.customerVisible"${attr("checked", state.content.customerVisible === true)}${disabledUnless(all)}> Customers can see finished inspections</label>
+        <p class="hint">Off: inspections finished with this checklist are internal, for your staff only. Once you publish a change here,
+          it applies to every inspection done with this checklist, past ones too. Customers never see the checklist itself.</p>
       </div>`;
   }
 
@@ -828,6 +847,9 @@ export function mountChecklist(root, { profile }) {
       case "checklist.title":
         state.content.title = value;
         break;
+      case "checklist.customerVisible":
+        state.content.customerVisible = value === true;
+        return changed({ redraw: true });
       case "checklist.equipment": {
         const order = equipmentTypes().map((type) => type.value);
         const named = new Set(model.typesOf(state.content));
