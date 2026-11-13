@@ -327,7 +327,7 @@ export async function functionVersion() {
 // ---------------------------------------------------------------- promotions
 
 /** The `offers` server function this website expects: its VERSION (supabase/functions/offers/index.ts). */
-export const EXPECTED_OFFERS_VERSION = "2026-11-22";
+export const EXPECTED_OFFERS_VERSION = "2026-11-26";
 
 /** The deployed offers function's version, or null when it isn't deployed (or predates the check). */
 export async function offersFunctionVersion() {
