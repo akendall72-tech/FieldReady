@@ -321,6 +321,8 @@ button.checklist-open:hover { background: var(--surface-tint); }
 .checklist-open .hint { margin: 0; }
 form.card[data-create] .choices { margin-top: 14px; }
 .form-picker { margin: -4px 0 16px; }
+p.review-status { margin: -4px 0 16px; }
+p.review-status button.link { padding: 0 2px; }
 .form-picker label { max-width: 520px; margin-bottom: 4px; }
 .form-picker .hint { margin: 0; }
 details.more-options { margin-top: 16px; border-top: 1px solid var(--hairline); padding-top: 12px; }

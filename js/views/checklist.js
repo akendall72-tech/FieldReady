@@ -56,6 +56,10 @@ export function mountChecklist(root, { profile }) {
     loadError: null,
     /** Owners: whether customer logins can do inspections with these forms (null until loaded). */
     customerInspections: null,
+    /** The reviewer's name while Mark as Reviewed is open; null otherwise. */
+    reviewing: null,
+    /** The open form without its review mark, when the mark was loaded or set (model.reviewedBody). */
+    reviewedBody: "",
   };
   /** Saving the draft a moment after each change. */
   const saving = { timer: null, running: null, error: null };
@@ -158,6 +162,8 @@ export function mountChecklist(root, { profile }) {
     const source = state.draft ?? state.live ?? newestRow(state.rows);
     state.content = source ? structuredClone(source.content) : null;
     state.saved = JSON.stringify(state.content);
+    state.reviewedBody = state.content ? model.reviewedBody(state.content) : "";
+    state.reviewing = null;
     saving.error = null;
     state.loadError = null;
     keepSelectionInRange();
@@ -240,6 +246,7 @@ export function mountChecklist(root, { profile }) {
     return `
       ${isCustom() ? `<button class="link back" data-action="close-checklist">← Custom checklists</button>` : ""}
       <div data-toolbar>${toolbar()}</div>
+      <div data-review>${reviewPanel()}</div>
       ${isCustom() ? settingsCard() : ""}
       <div data-problems>${problemsPanel()}</div>
       <div class="editor">
@@ -252,6 +259,8 @@ export function mountChecklist(root, { profile }) {
   function refreshStatus() {
     const bar = root.querySelector("[data-toolbar]");
     if (bar) bar.innerHTML = toolbar();
+    const review = root.querySelector("[data-review]");
+    if (review && state.reviewing == null) review.innerHTML = reviewPanel();
     const problems = root.querySelector("[data-problems]");
     if (problems) problems.innerHTML = problemsPanel();
   }
@@ -292,6 +301,55 @@ export function mountChecklist(root, { profile }) {
       ${alsoFor.length ? `<p class="callout">This form is also used for ${escape(alsoFor.join(", "))}. Changes apply to all of them.</p>` : ""}
       ${!canManage() ? `<p class="callout">Only owners, and people an owner lets edit forms and options, change these forms. You can look at them here.</p>` : ""}
       ${!editable() && isCustom() && canManage() ? `<p class="callout">This checklist is retired, so it isn't offered for new inspections. Bring it back from the list.</p>` : ""}`;
+  }
+
+  /**
+   * Whether someone reviewed this form, and Mark as Reviewed. Inspections and reports say a form
+   * hasn't been reviewed until it's marked; any other change to it takes the mark off. Custom
+   * checklists are their maker's own, so they have none.
+   */
+  function reviewPanel() {
+    if (isCustom() || !state.content) return "";
+    if (state.reviewing != null) {
+      return `
+        <form class="card review-form" data-review-form>
+          <h2>Mark as Reviewed</h2>
+          <p class="hint">Mark it once someone qualified has gone through every check and its How to Check steps against
+            the manufacturer's procedures. Inspections and reports then name them; any later change to the form takes the
+            mark off.</p>
+          <label>Reviewed by <input name="reviewer" data-field="reviewer" value="${escape(state.reviewing)}" maxlength="80" autocomplete="off" required></label>
+          <div class="actions">
+            <button class="primary" type="submit">Mark as Reviewed</button>
+            <button class="secondary" type="button" data-action="cancel-review">Cancel</button>
+          </div>
+        </form>`;
+    }
+    const reviewed = model.isReviewed(state.content) && !model.changedSinceReview(state.content, state.reviewedBody);
+    if (reviewed) {
+      return `<p class="meta review-status">✓ ${escape(model.reviewWords(state.content))}${canEditAll() ? " Any change to the form takes the mark off." : ""}</p>`;
+    }
+    const changed = model.isReviewed(state.content);
+    return `
+      <p class="callout review-status">${changed ? "Changed since its review, so it's no longer marked reviewed." : "Not reviewed."}
+        Inspections and reports say this form hasn't been reviewed.
+        ${canEditAll() ? `<button class="link" data-action="start-review"${attr("disabled", state.busy)}>Mark as Reviewed</button>` : ""}</p>`;
+  }
+
+  function startReview() {
+    if (!canEditAll()) return;
+    state.reviewing = profile.full_name ?? "";
+    render();
+    root.querySelector('[data-review-form] [name="reviewer"]')?.focus();
+  }
+
+  function finishReview() {
+    const name = (state.reviewing ?? "").trim();
+    if (!name || !canEditAll()) return;
+    model.markReviewed(state.content, name);
+    state.reviewedBody = model.reviewedBody(state.content);
+    state.reviewing = null;
+    changed({ redraw: true });
+    notice(root, `Marked reviewed by ${name}. Publish to Phones to send it out.`, "success");
   }
 
   /** Guidance / Precision Planting / Machine / Custom. */
@@ -734,6 +792,9 @@ export function mountChecklist(root, { profile }) {
       return;
     }
     switch (target.dataset.field) {
+      case "reviewer":
+        state.reviewing = target.value;
+        return;
       case "customer-inspections":
         if (event.type === "change") await saveCustomerSwitch(target.checked);
         return;
@@ -867,6 +928,10 @@ export function mountChecklist(root, { profile }) {
       case "select-item": return select(s, i);
       case "publish": return publish();
       case "discard": return discard();
+      case "start-review": return startReview();
+      case "cancel-review":
+        state.reviewing = null;
+        return render();
     }
 
     if (action.startsWith("step") || action.endsWith("-step")) {
@@ -1072,6 +1137,10 @@ export function mountChecklist(root, { profile }) {
     saving.timer = null;
     if (saving.running) return saving.running;
     if (!isDirty() || saving.error || !editable()) return Promise.resolve();
+    if (model.changedSinceReview(state.content, state.reviewedBody)) {
+      model.clearReview(state.content);
+      state.reviewedBody = model.reviewedBody(state.content);
+    }
     const templateId = state.templateId;
     const { draft, live } = state;
     const content = structuredClone(state.content);
@@ -1132,6 +1201,10 @@ export function mountChecklist(root, { profile }) {
   }
 
   function onSubmit(event) {
+    if (event.target.closest("[data-review-form]")) {
+      event.preventDefault();
+      return finishReview();
+    }
     const form = event.target.closest("[data-create]");
     if (!form) return;
     event.preventDefault();
@@ -1150,7 +1223,10 @@ export function mountChecklist(root, { profile }) {
       return;
     }
     if (!state.draft) return;
-    if (!confirm(`Publish “${state.content.title}” to phones?\n\nPhones pick it up at their next sync, and draft inspections switch to it when they're opened. Finalized inspections keep the version they were signed with.`)) return;
+    const review = isCustom() ? ""
+      : model.isReviewed(state.content) ? `\n\n${model.reviewWords(state.content)}`
+      : "\n\nIt isn't marked reviewed, so inspections and reports will say it hasn't been reviewed.";
+    if (!confirm(`Publish “${state.content.title}” to phones?\n\nPhones pick it up at their next sync, and draft inspections switch to it when they're opened. Finalized inspections keep the version they were signed with.${review}`)) return;
     return run(async () => {
       await api.publishDraft(state.draft);
       await fetchAll();

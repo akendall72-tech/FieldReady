@@ -9,7 +9,7 @@
 import {
   problems, isNewer, nextVersion, liveVersion, slug, uniqueKey, newCheck, newSection, draftFrom, move, itemKeys,
   kindOf, typesOf, newChecklist, copyChecklist, guidanceForms, machineFormFor, formId, guidanceFormFrom, machineFormFrom,
-  FACTORY, OTHER_SYSTEM,
+  FACTORY, OTHER_SYSTEM, isReviewed, today, markReviewed, clearReview, reviewedBody, changedSinceReview, reviewWords,
 } from "../js/checklist-model.js";
 
 let passed = 0;
@@ -148,6 +148,27 @@ check("custom checklists carry a suffix and any type", mine.id === "custom-hitch
 const copied = copyChecklist({ ...fresh, version: "3" }, { title: "Combine harvest", taken: new Set() });
 check("a copy keeps the checks under a new id at version 1", copied.id === "machine-combineHarvest" && copied.version === "1"
   && copied.sections[0].items.length === 1 && fresh.version === "1");
+// Review marks (InspectionTemplate.isReviewed in the app).
+check("a form starts unreviewed", !isReviewed(fresh) && reviewWords(fresh) === "Not reviewed.");
+const reviewed = JSON.parse(JSON.stringify(fresh));
+markReviewed(reviewed, "  Jane Smith ", "2026-11-12");
+check("marking names the reviewer and the day", isReviewed(reviewed) && reviewed.reviewStatus === "reviewed"
+  && reviewed.reviewedBy === "Jane Smith" && reviewed.reviewedOn === "2026-11-12" && problems(reviewed).length === problems(fresh).length);
+check("…and says so", reviewWords(reviewed, (date) => `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`)
+  === "Reviewed by Jane Smith on 2026/11/12.");
+check("a review without a name isn't one", !isReviewed({ ...reviewed, reviewedBy: " " }) && !isReviewed({ ...reviewed, reviewStatus: "draft" }));
+const body = reviewedBody(reviewed);
+check("the mark itself isn't a change to the form", body === reviewedBody(fresh) && !changedSinceReview(reviewed, body));
+check("…nor is the version number a new draft gets", !changedSinceReview({ ...reviewed, version: "2" }, body));
+reviewed.sections[0].items[0].title = "Changed";
+check("any other change is", changedSinceReview(reviewed, body));
+clearReview(reviewed);
+check("clearing takes the mark off", !isReviewed(reviewed) && reviewed.reviewStatus === "draft"
+  && !("reviewedBy" in reviewed) && !("reviewedOn" in reviewed));
+const reviewedSource = JSON.parse(JSON.stringify(fresh));
+markReviewed(reviewedSource, "Jane Smith", "2026-11-12");
+check("a copy is a new form, not reviewed", !isReviewed(copyChecklist(reviewedSource, { title: "Combine copy", taken: new Set() })));
+check("today is a day in the person's time zone", today(new Date(2026, 0, 5, 23, 30)) === "2026-01-05");
 check("unknown kinds are caught", problems({ ...fresh, kind: "drone" }).includes("The checklist's kind isn't one phones know."));
 check("unknown equipment types are caught", problems(fresh, { equipment_type: new Set(["tractor"]) })
   .includes("The checklist is for an equipment type phones don't know yet."));

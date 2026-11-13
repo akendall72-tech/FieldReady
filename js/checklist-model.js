@@ -257,8 +257,60 @@ export function copyChecklist(source, { title, kind = kindOf(source), taken = ne
   copy.version = "1";
   copy.title = title.trim();
   copy.kind = kind;
-  if (kind === "custom") copy.reviewStatus = "draft";
+  clearReview(copy);
   return copy;
+}
+
+// ---------------------------------------------------------------- review (InspectionTemplate.isReviewed in the app)
+
+const REVIEW_FIELDS = ["reviewStatus", "reviewedBy", "reviewedOn"];
+
+/** Whether the form's checks were marked reviewed, naming who reviewed them (the app reads it the same way). */
+export function isReviewed(content) {
+  return content?.reviewStatus === "reviewed" && !isBlank(content.reviewedBy);
+}
+
+/** Today as a "2026-11-12" day, in the person's own time zone. */
+export function today(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** Marks the form reviewed by `name` on `day`. */
+export function markReviewed(content, name, day = today()) {
+  content.reviewStatus = "reviewed";
+  content.reviewedBy = name.trim();
+  content.reviewedOn = day;
+}
+
+/** Takes the review mark off (a copy, or a form changed since its review). */
+export function clearReview(content) {
+  content.reviewStatus = "draft";
+  delete content.reviewedBy;
+  delete content.reviewedOn;
+}
+
+/**
+ * The form without its review mark or version number (saving a new draft numbers it), to tell
+ * whether anything else changed since it was reviewed.
+ */
+export function reviewedBody(content) {
+  const copy = { ...content };
+  for (const field of [...REVIEW_FIELDS, "version"]) delete copy[field];
+  return JSON.stringify(copy);
+}
+
+/** Whether a form marked reviewed was changed since (`body`: its reviewedBody when the mark was set or loaded). */
+export function changedSinceReview(content, body) {
+  return isReviewed(content) && reviewedBody(content) !== body;
+}
+
+/** "Reviewed by Jane Smith on Nov 12, 2026." */
+export function reviewWords(content, formatDay = (date) => date.toLocaleDateString(undefined, { dateStyle: "medium" })) {
+  if (!isReviewed(content)) return "Not reviewed.";
+  const [y, m, d] = String(content.reviewedOn ?? "").split("-").map(Number);
+  const day = y && m && d ? ` on ${formatDay(new Date(y, m - 1, d))}` : "";
+  return `Reviewed by ${content.reviewedBy.trim()}${day}.`;
 }
 
 /** A deep copy of the live checklist as the start of the next version. */
