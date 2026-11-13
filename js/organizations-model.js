@@ -24,6 +24,17 @@ export function newOrganizationProblems(form, organizations = []) {
   return found;
 }
 
+/**
+ * What stops renaming `organization` to `name` (the people function's renameOrganization checks the
+ * same): empty when it can be saved. Its own name, even in other capitals, is fine.
+ */
+export function renameProblems(name, organization, organizations = []) {
+  const wanted = clean(name);
+  if (!wanted) return ["Enter the organization's name."];
+  const taken = organizations.some((o) => o.id !== organization.id && clean(o.name).toLowerCase() === wanted.toLowerCase());
+  return taken ? ["Another organization already has that name."] : [];
+}
+
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 
 /** "2 stores · 5 staff · 1 customer login": stores in use and people who can sign in. */

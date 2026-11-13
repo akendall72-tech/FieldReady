@@ -3,7 +3,7 @@
 //   JSC=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
 //   $JSC -m tests/organizations-model.test.mjs
 
-import { blankOrganization, newOrganizationProblems, summary, ownerStatus, handoverMessage } from "../js/organizations-model.js";
+import { blankOrganization, newOrganizationProblems, renameProblems, summary, ownerStatus, handoverMessage } from "../js/organizations-model.js";
 import { newPasswordProblem } from "../js/people-model.js";
 
 let passed = 0;
@@ -34,6 +34,11 @@ const organizations = [
 }
 
 // The list
+check("a new name is fine", renameProblems("  Prairie Ag Supply ", organizations[0], organizations).length === 0);
+check("…its own name in other capitals too", renameProblems(organizations[0].name.toUpperCase(), organizations[0], organizations).length === 0);
+check("a name is needed", renameProblems("  ", organizations[0], organizations)[0] === "Enter the organization's name.");
+check("…and can't be another organization's", renameProblems("prairie ag", organizations[0], [...organizations, { id: "b", name: "Prairie Ag" }])[0]
+  === "Another organization already has that name.");
 check("summary counts stores in use", summary(organizations[0]) === "2 stores · 5 staff · 1 customer login");
 check("summary plurals", summary({ stores: [{ active: true }], staff: 1, customerLogins: 0 }) === "1 store · 1 staff · 0 customer logins");
 check("owners with access off", ownerStatus({ active: false, waiting: true }) === "Access off");

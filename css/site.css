@@ -255,6 +255,9 @@ form.card .actions { display: flex; gap: 8px; margin-top: 12px; }
 .org:first-child { border-top: none; }
 .org-head { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
 .org > .hint { margin: 4px 0 0; }
+.org-head button.link { margin-left: 4px; padding: 0 4px; }
+.rename-form label { margin-top: 0; }
+.rename-form .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .org-owners li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 4px 0; }
 .org-owners .hint { margin: 0; overflow-wrap: anywhere; }
 .store { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 16px; align-items: end; border-top: 1px solid var(--hairline); padding: 6px 0 10px; }

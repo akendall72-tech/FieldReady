@@ -1,5 +1,6 @@
 // The Organizations page, only for platform admins (public.platform_admins): every dealer using
-// Field Ready, and setting up a new one with its first owner, who runs it from there. Everything
+// Field Ready, setting up a new one with its first owner, who runs it from there, and renaming one
+// (only platform admins can, since 20261124100000_organization_names.sql). Everything
 // goes through the `people` server function; the page shows names and counts only, never another
 // organization's records.
 
@@ -16,6 +17,8 @@ export function mountOrganizations(root, { profile }) {
     form: model.blankOrganization(),
     /** What happened to the last invitation or password link (and the link to send by hand), shown until dismissed. */
     handover: null,
+    /** The organization being renamed: { id, name } (the name as typed), or null. */
+    renaming: null,
     busy: false,
     loadError: null,
   };
@@ -138,10 +141,12 @@ export function mountOrganizations(root, { profile }) {
     const stores = organization.stores.map((store) => `${escape(store.name)}${store.active ? "" : " (turned off)"}`).join(", ");
     return `
       <li class="org">
+        ${state.renaming?.id === organization.id ? renameForm(organization) : `
         <div class="org-head">
-          <span><strong>${escape(organization.name)}</strong>${yours}</span>
+          <span><strong>${escape(organization.name)}</strong>${yours}
+            <button class="link" data-action="rename" data-org="${escape(organization.id)}"${attr("disabled", state.busy || state.renaming)}>Rename</button></span>
           <span class="hint">${escape(model.summary(organization))}${organization.createdAt ? ` · since ${escape(new Date(organization.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" }))}` : ""}</span>
-        </div>
+        </div>`}
         <p class="hint">Stores: ${stores || "none"}</p>
         <ol class="org-owners">
           ${organization.owners.map((owner) => `
@@ -154,6 +159,39 @@ export function mountOrganizations(root, { profile }) {
             </li>`).join("") || '<li class="hint">No owner yet.</li>'}
         </ol>
       </li>`;
+  }
+
+  function renameForm(organization) {
+    const problems = model.renameProblems(state.renaming.name, organization, state.organizations);
+    return `
+      <form class="rename-form" data-rename-form>
+        <label>Organization name <input data-rename value="${escape(state.renaming.name)}" maxlength="120" autocomplete="off"></label>
+        <p class="hint">Everyone in ${escape(organization.name)} sees the new name on the website, and in the app the next time it
+          checks in. It's the name on new reports (unless a phone has its own report branding) and in offer emails. Finished
+          reports keep the name they were made with.</p>
+        <p class="form-error" data-rename-problems>${escape(problems[0] ?? "")}</p>
+        <div class="actions">
+          <button class="primary" type="submit" data-rename-submit${attr("disabled", problems.length > 0 || state.busy)}>Save Name</button>
+          <button class="secondary" type="button" data-action="cancel-rename">Cancel</button>
+        </div>
+      </form>`;
+  }
+
+  function renameOrganization() {
+    const organization = state.organizations.find((o) => o.id === state.renaming?.id);
+    if (!organization || model.renameProblems(state.renaming.name, organization, state.organizations).length) return;
+    const name = state.renaming.name.trim();
+    if (name === organization.name) {
+      state.renaming = null;
+      return render();
+    }
+    const before = organization.name;
+    return run(async () => {
+      await api.callPeople("renameOrganization", { organizationId: organization.id, name });
+      state.renaming = null;
+      state.organizations = (await api.callPeople("listOrganizations", {})).organizations ?? [];
+      return `Renamed ${before} to ${name}.`;
+    });
   }
 
   /** Runs one server action with the buttons held, then redraws and shows what happened. */
@@ -222,6 +260,14 @@ export function mountOrganizations(root, { profile }) {
 
   /** Keeps the form's button and first problem current without redrawing (typing isn't interrupted). */
   function onInput(event) {
+    if (event.target.matches("[data-rename]") && state.renaming) {
+      state.renaming.name = event.target.value;
+      const organization = state.organizations.find((o) => o.id === state.renaming.id);
+      const problems = model.renameProblems(state.renaming.name, organization, state.organizations);
+      root.querySelector("[data-rename-problems]").textContent = problems[0] ?? "";
+      root.querySelector("[data-rename-submit]").disabled = problems.length > 0 || state.busy;
+      return;
+    }
     const field = event.target.dataset.new;
     if (!field) return;
     state.form[field] = event.target.value;
@@ -233,6 +279,7 @@ export function mountOrganizations(root, { profile }) {
   function onSubmit(event) {
     event.preventDefault();
     if (event.target.closest("[data-add-form]")) return createOrganization();
+    if (event.target.closest("[data-rename-form]")) return renameOrganization();
   }
 
   async function onClick(event) {
@@ -248,6 +295,19 @@ export function mountOrganizations(root, { profile }) {
         return;
       case "cancel-add":
         state.adding = false;
+        return render();
+      case "rename": {
+        const organization = state.organizations.find((o) => o.id === element.dataset.org);
+        if (!organization) return;
+        state.renaming = { id: organization.id, name: organization.name };
+        render();
+        const input = root.querySelector("[data-rename]");
+        input?.focus();
+        input?.select();
+        return;
+      }
+      case "cancel-rename":
+        state.renaming = null;
         return render();
       case "reset-owner": return resetOwner(element.dataset.id, element.dataset.org);
       case "reset-two-step": return resetTwoStep(element.dataset.id, element.dataset.name);
