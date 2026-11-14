@@ -43,6 +43,8 @@ export function mountPromotions(root, { profile }) {
     /** The open running offer's email counts (offer_email_summary), or null while loading. */
     emailSummary: null,
     emailError: null,
+    /** The organization's own names for its kinds of store contact, for where each offer type's responses go. */
+    titles: {},
     /** The organization's mailing address, printed in offer emails, and the owner's edit of it. */
     mailingAddress: "",
     addressDraft: "",
@@ -53,13 +55,14 @@ export function mountPromotions(root, { profile }) {
 
   async function load() {
     try {
-      const [offers, results, leads, stores, options, customers, mailingAddress] = await Promise.all([
+      const [offers, results, leads, stores, options, customers, mailingAddress, titles] = await Promise.all([
         api.loadPromotions(), api.loadOfferResults(), worksLeads ? api.loadLeads() : [], api.loadStores(), api.loadOptionRows(),
         // Offers still open without it (until the database has offer_customers, chosen customers aren't named).
         api.offerCustomers().catch(() => []),
         canManage ? api.loadMailingAddress(profile.organization_id).catch(() => "") : "",
+        api.loadContactTitles(profile.organization_id),
       ]);
-      Object.assign(state, { offers, results, leads, stores: stores.filter((s) => s.active), options, customers, mailingAddress,
+      Object.assign(state, { offers, results, leads, stores: stores.filter((s) => s.active), options, customers, mailingAddress, titles,
         addressDraft: mailingAddress, loadError: null });
     } catch (error) {
       state.loadError = api.describe(error);
@@ -131,7 +134,8 @@ export function mountPromotions(root, { profile }) {
     return `
       <li>
         <button class="list-row" data-action="open" data-id="${escape(offer.id)}">
-          <span><strong>${escape(offer.title)}</strong>${offer.deal ? ` · ${escape(offer.deal)}` : ""} <span class="tag">${escape(status.label)}</span></span>
+          <span><strong>${escape(offer.title)}</strong>${offer.deal ? ` · ${escape(offer.deal)}` : ""} <span class="tag">${escape(status.label)}</span>
+            <span class="tag">${escape(model.offerType(offer.kind).label)}</span></span>
           <span class="meta">${escape(offer.starts_on)} to ${escape(offer.ends_on)} · ${escape(model.storesWords(offer, state.stores))}</span>
           <span class="meta">${escape(conditions)}</span>
           ${offer.status === "draft" ? "" : `<span class="meta">${r.seen} saw it · ${r.interested} interested · ${r.notNow} not now · ${r.sold} sold</span>`}
@@ -152,6 +156,8 @@ export function mountPromotions(root, { profile }) {
         ${!can && canManage ? '<p class="callout">Published offers can\'t be changed. Stop it, or make a copy to change it.</p>' : ""}
         ${r ? `<p class="meta">${r.seen} saw it · ${r.interested} interested · ${r.notNow} not now · ${r.sold} sold</p>` : ""}
         ${emailBlock()}
+        <label>Type <select data-offer="kind"${off}>${model.OFFER_TYPES.map((type) => `<option value="${type.value}"${attr("selected", type.value === model.offerType(d.kind).value)}>${escape(type.label)}</option>`).join("")}</select></label>
+        <p class="hint" data-route>${escape(model.routeWords(d.kind, state.titles))}</p>
         <div class="grid2">
           <label>Title <input data-offer="title" maxlength="80" value="${escape(d.title)}" placeholder="Renew your RTX early"${off}></label>
           <label>The deal <input data-offer="deal" maxlength="80" value="${escape(d.deal)}" placeholder="10% off a year"${off}></label>
@@ -419,6 +425,10 @@ export function mountPromotions(root, { profile }) {
     }
     if (element.dataset.offer && d) {
       d[element.dataset.offer] = element.value;
+      if (element.dataset.offer === "kind") {
+        const route = root.querySelector("[data-route]");
+        if (route) route.textContent = model.routeWords(d.kind, state.titles);
+      }
       return;
     }
     if (element.dataset.store && d && event.type === "change") {

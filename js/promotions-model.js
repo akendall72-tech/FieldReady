@@ -5,6 +5,7 @@
 // the two together.
 
 import { labelFor } from "./equipment-model.js";
+import { titleFor } from "./customers-model.js";
 
 /** What a condition's value is, by field and op. */
 const VALUE = {
@@ -157,8 +158,36 @@ export function conditionProblem(condition) {
   }
 }
 
+/**
+ * Offer types: which store contacts work an offer's responses (private.offer_contact_role and the
+ * offers function's OFFER_ROLES). Offers made before types are Sales offers.
+ */
+export const OFFER_TYPES = [
+  { value: "sales", label: "Sales", role: "sales" },
+  { value: "parts", label: "Parts", role: "customer_service" },
+  { value: "service", label: "Service", role: "service" },
+  { value: "technology", label: "Technology", role: "ptx_specialist" },
+];
+
+export const offerType = (kind) => OFFER_TYPES.find((type) => type.value === kind) ?? OFFER_TYPES[0];
+
+/**
+ * Where an offer's responses go, with the organization's contact titles (`saved`): the type's
+ * contacts at the farm's store, else its Sales contacts, else the owners (I'm interested emails) or
+ * whoever emailed the offer (replies). Mirrors the offers function's contactRoles.
+ */
+export function routeWords(kind, saved = {}) {
+  const type = offerType(kind);
+  const sales = titleFor("sales", saved);
+  const fallback = "with none, I'm interested emails go to the owners and replies to whoever emailed the offer.";
+  if (type.role === "sales") {
+    return `I'm interested emails and email replies go to each store's ${sales} contacts; ${fallback}`;
+  }
+  return `I'm interested emails and email replies go to each store's ${titleFor(type.role, saved)} contacts. A store without one uses its ${sales} contacts; ${fallback}`;
+}
+
 export function blankOffer(today) {
-  return { id: null, title: "", description: "", deal: "", code: "", starts_on: today, ends_on: addDays(today, 30), store_ids: [], rules: [], status: "draft" };
+  return { id: null, title: "", description: "", deal: "", code: "", starts_on: today, ends_on: addDays(today, 30), store_ids: [], rules: [], status: "draft", kind: "sales" };
 }
 
 export function addDays(day, days) {
@@ -189,6 +218,7 @@ export function offerProblems(offer) {
 export const cleanOffer = (offer) => ({
   title: offer.title.trim(), description: offer.description.trim(), deal: offer.deal.trim(), code: offer.code.trim(),
   starts_on: offer.starts_on, ends_on: offer.ends_on, store_ids: offer.store_ids ?? [], rules: offer.rules ?? [],
+  kind: offerType(offer.kind).value,
 });
 
 /** Where an offer is in its life, as the list shows it. */

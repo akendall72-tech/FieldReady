@@ -338,7 +338,7 @@ export async function functionVersion() {
 // ---------------------------------------------------------------- promotions
 
 /** The `offers` server function this website expects: its VERSION (supabase/functions/offers/index.ts). */
-export const EXPECTED_OFFERS_VERSION = "2026-11-26";
+export const EXPECTED_OFFERS_VERSION = "2026-11-29";
 
 /** The deployed offers function's version, or null when it isn't deployed (or predates the check). */
 export async function offersFunctionVersion() {
@@ -379,6 +379,22 @@ export async function loadMailingAddress(organizationId) {
 /** Owners set the mailing address. */
 export async function saveMailingAddress(organizationId, address) {
   const rows = unwrap(await supabase.from("organizations").update({ mailing_address: address }).eq("id", organizationId).select("id"));
+  if (!rows.length) throw new Error("That wasn't saved. Only owners can change it.");
+}
+
+/**
+ * The organization's own names for its kinds of store contact (organizations.contact_titles), or {}
+ * when it has none or they can't be read (before the contact titles migration).
+ */
+export async function loadContactTitles(organizationId) {
+  const { data, error } = await supabase.from("organizations").select("contact_titles").eq("id", organizationId).maybeSingle();
+  if (error) return {};
+  return data?.contact_titles ?? {};
+}
+
+/** Owners name the kinds of store contact: only non-blank names are kept (a blank one goes back to the standard name). */
+export async function saveContactTitles(organizationId, titles) {
+  const rows = unwrap(await supabase.from("organizations").update({ contact_titles: titles }).eq("id", organizationId).select("id"));
   if (!rows.length) throw new Error("That wasn't saved. Only owners can change it.");
 }
 

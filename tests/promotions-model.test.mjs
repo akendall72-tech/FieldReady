@@ -6,7 +6,7 @@
 import {
   CONDITIONS, blankCondition, withOp, describeCondition, conditionProblem, blankOffer, addDays, offerProblems, cleanOffer,
   offerState, resultsFor, audienceWords, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
-  addressProblem, emailWords, emailResult, ADDRESS_MAX, unsubscribeToken,
+  addressProblem, emailWords, emailResult, ADDRESS_MAX, unsubscribeToken, OFFER_TYPES, offerType, routeWords,
 } from "../js/promotions-model.js";
 
 let passed = 0;
@@ -97,7 +97,7 @@ check("…and to end after it starts", offerProblems({ ...offer, ends_on: "2026-
 check("…and good conditions", offerProblems({ ...offer, rules: [{ field: "feature", op: "installed", value: "" }] }).includes("Feature: choose one."));
 check("saving trims and keeps the conditions", JSON.stringify(cleanOffer({ ...offer, title: " Renew early ", rules: [blankCondition("inspection")] })) ===
   JSON.stringify({ title: "Renew early", description: "", deal: "10% off", code: "", starts_on: "2026-11-10", ends_on: "2026-12-10", store_ids: [],
-    rules: [{ field: "inspection", op: "finding", value: null }] }));
+    rules: [{ field: "inspection", op: "finding", value: null }], kind: "sales" }));
 
 // States and results
 check("drafts", offerState({ status: "draft" }, "2026-11-10").label === "Draft");
@@ -119,6 +119,23 @@ check("stores in words", storesWords({ store_ids: [] }, []) === "Every store"
   && storesWords({ store_ids: ["n"] }, [{ id: "n", name: "North" }]) === "North");
 check("open leads", isOpenLead({ lead_status: "new" }) && isOpenLead({ lead_status: "contacted" }) && !isOpenLead({ lead_status: "sold" }));
 check("lead labels", leadStatusLabel("notInterested") === "Not interested" && leadStatusLabel(null) === "New");
+
+// Offer types
+{
+  check("four types and the contacts that work them", OFFER_TYPES.map((t) => `${t.value}:${t.role}`).join()
+    === "sales:sales,parts:customer_service,service:service,technology:ptx_specialist");
+  check("a new offer is a Sales offer", blankOffer("2026-11-29").kind === "sales");
+  check("an offer from before types reads as Sales", offerType(undefined).value === "sales" && offerType("nonsense").label === "Sales");
+  check("saving keeps the type", cleanOffer({ ...blankOffer("2026-11-29"), title: "Filters", kind: "parts" }).kind === "parts");
+  check("…and a missing one saves as Sales", cleanOffer({ ...blankOffer("2026-11-29"), kind: undefined }).kind === "sales");
+  const parts = routeWords("parts", { customer_service: "Parts Counter" });
+  check("Parts responses go to the store's (renamed) customer service contacts, then Sales", parts.includes("each store's Parts Counter contacts")
+    && parts.includes("uses its Sales Representative contacts"));
+  check("…and with neither, the owners or the sender", parts.includes("go to the owners and replies to whoever emailed the offer"));
+  const sales = routeWords("sales", {});
+  check("Sales responses go to Sales, with no second step", sales.includes("each store's Sales Representative contacts;") && !sales.includes("uses its"));
+  check("Technology goes to the PTx specialist", routeWords("technology").includes("PTx Product Specialist contacts"));
+}
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

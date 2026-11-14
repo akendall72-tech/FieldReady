@@ -5,7 +5,7 @@
 
 import {
   CONTACT_ROLES, canManageCustomer, canEditContacts, loginsFor, newLogin, newLoginProblems,
-  contactGroups, contactProblems,
+  contactGroups, contactProblems, contactTitles, titleFor, cleanTitles, titleProblems,
 } from "../js/customers-model.js";
 
 let passed = 0;
@@ -59,6 +59,19 @@ check("a contact needs a name", contactProblems({ name: " ", phone: "555" }).inc
 check("…and a phone or email", contactProblems({ name: "Pat" }).includes("Enter a phone number or an email.")
   && contactProblems({ name: "Pat", phone: "555-0100" }).length === 0);
 check("…with a real email if given", contactProblems({ name: "Pat", email: "pat" }).includes("Check the email address."));
+
+// Contact titles
+{
+  const saved = { customer_service: "Parts Counter", sales: "  " };
+  const titles = contactTitles(saved);
+  check("four kinds, in the app's order", titles.map((t) => t.value).join() === "ptx_specialist,sales,customer_service,service");
+  check("an organization's own name", titleFor("customer_service", saved) === "Parts Counter");
+  check("…else the standard one, blanks included", titleFor("sales", saved) === "Sales Representative" && titleFor("service", {}) === "Service");
+  check("each keeps its standard name", titles.find((t) => t.value === "customer_service").standard === "Customer Service Representative");
+  check("saving keeps only names typed in", JSON.stringify(cleanTitles({ sales: " Sales Team ", service: "", other: "x" })) === '{"sales":"Sales Team"}');
+  check("titles are at most 40 characters", titleProblems({ sales: "x".repeat(41) }).length === 1 && titleProblems({ sales: "x".repeat(40) }).length === 0);
+  check("store contact groups use the titles", contactGroups([], "s1", saved).find((g) => g.value === "customer_service").label === "Parts Counter");
+}
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

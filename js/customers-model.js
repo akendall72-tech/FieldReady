@@ -5,7 +5,11 @@
 
 import { isEmail } from "./people-model.js";
 
-/** The four kinds of store contact customers see in the app, in the order it shows them. */
+/**
+ * The four kinds of store contact customers see in the app, in the order it shows them, with their
+ * standard names. Each organization may name them its own way (organizations.contact_titles; see
+ * contactTitles).
+ */
 export const CONTACT_ROLES = [
   { value: "ptx_specialist", label: "PTx Product Specialist" },
   { value: "sales", label: "Sales Representative" },
@@ -40,10 +44,42 @@ export function newLoginProblems(login, people = [], invitations = []) {
   return found;
 }
 
-/** A store's contacts grouped by role, in role order, each group in its saved order. */
-export function contactGroups(contacts, storeId) {
+/** The longest name an organization can give a kind of contact (private.valid_contact_titles). */
+export const TITLE_MAX = 40;
+
+/**
+ * The four kinds of contact with the organization's own names (`saved`: organizations.contact_titles),
+ * else the standard ones. Each keeps its standard name as `standard`.
+ */
+export function contactTitles(saved = {}) {
+  return CONTACT_ROLES.map((role) => {
+    const own = String(saved?.[role.value] ?? "").trim();
+    return { ...role, standard: role.label, label: own || role.label };
+  });
+}
+
+/** One kind's name: the organization's own, else the standard one. */
+export const titleFor = (role, saved = {}) => contactTitles(saved).find((r) => r.value === role)?.label ?? role;
+
+/** What's saved for the titles being typed: trimmed, leaving out blanks (a blank goes back to the standard name). */
+export function cleanTitles(titles = {}) {
+  const clean = {};
+  for (const role of CONTACT_ROLES) {
+    const value = String(titles[role.value] ?? "").trim();
+    if (value) clean[role.value] = value;
+  }
+  return clean;
+}
+
+/** What stops the titles from being saved, in plain words. Empty when they can be. */
+export function titleProblems(titles = {}) {
+  return Object.values(cleanTitles(titles)).some((value) => value.length > TITLE_MAX) ? [`Keep each title to ${TITLE_MAX} characters.`] : [];
+}
+
+/** A store's contacts grouped by role, in role order (with the organization's titles), each group in its saved order. */
+export function contactGroups(contacts, storeId, saved = {}) {
   const mine = contacts.filter((contact) => contact.location_id === storeId);
-  return CONTACT_ROLES.map((role) => ({
+  return contactTitles(saved).map((role) => ({
     ...role,
     contacts: mine.filter((c) => c.role === role.value).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
   }));

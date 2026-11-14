@@ -12,7 +12,7 @@ import { escape, attr, notice, formatDate } from "../ui.js";
 import * as model from "../people-model.js";
 import { inviteResult, inviteNotice } from "../invite-model.js";
 import { inviteCard, copyLink } from "../invite-card.js";
-import { canEditContacts, contactGroups, contactProblems } from "../customers-model.js";
+import { canEditContacts, contactGroups, contactProblems, contactTitles, cleanTitles, titleProblems, TITLE_MAX } from "../customers-model.js";
 
 export function mountPeople(root, { profile }) {
   const isOwner = profile.role === "owner";
@@ -30,6 +30,8 @@ export function mountPeople(root, { profile }) {
     deletionRequests: [],
     /** The organization's level and staff logins in use (public.staff_allowance), or null before it's known. */
     allowance: null,
+    /** The organization's own names for its kinds of store contact (organizations.contact_titles). */
+    titles: {},
     /** The store whose contacts are open (owners pick one; admins see their own). */
     contactsStore: isOwner ? null : profile.location_id,
     /** A contact being added: its store, role, and details so far. */
@@ -56,12 +58,13 @@ export function mountPeople(root, { profile }) {
   // ---------------------------------------------------------------- loading
 
   async function fetchAll() {
-    const [people, invitations, stores, contacts, deletionRequests, allowance] = await Promise.all([
+    const [people, invitations, stores, contacts, deletionRequests, allowance, titles] = await Promise.all([
       api.loadPeople(), api.loadInvitations(), api.loadStores(), api.loadContacts(),
-      isOwner ? api.loadDeletionRequests() : [], api.loadStaffAllowance(),
+      isOwner ? api.loadDeletionRequests() : [], api.loadStaffAllowance(), api.loadContactTitles(profile.organization_id),
     ]);
     state.deletionRequests = deletionRequests;
     state.allowance = allowance;
+    state.titles = titles;
     state.everyone = people;
     state.people = model.sortPeople(people.filter((person) => person.role !== "customer"));
     state.allInvitations = invitations;
@@ -111,6 +114,7 @@ export function mountPeople(root, { profile }) {
       ${peopleCard()}
       ${waitingCard()}
       ${isOwner ? storesCard() : ""}
+      ${isOwner ? titlesCard() : ""}
       ${!isOwner && canEditContacts(viewer, profile.location_id) ? `
         <div class="card">
           <h2>Contacts for customers</h2>
@@ -134,7 +138,7 @@ export function mountPeople(root, { profile }) {
     const editable = canEditContacts(viewer, storeId);
     return `
       <div class="contacts">
-        ${contactGroups(state.contacts, storeId).map((group) => `
+        ${contactGroups(state.contacts, storeId, state.titles).map((group) => `
           <fieldset>
             <legend>${escape(group.label)}</legend>
             ${group.contacts.length ? group.contacts.map((contact) => contactRow(contact, editable)).join("") : '<p class="hint">Nobody yet.</p>'}
@@ -403,6 +407,40 @@ export function mountPeople(root, { profile }) {
       </div>`;
   }
 
+  /** Owners name the four kinds of store contact their own way; a blank name goes back to the standard one. */
+  function titlesCard() {
+    return `
+      <div class="card">
+        <h2>Contact titles</h2>
+        <p class="hint">What your stores call each kind of contact. Customers see these names in the app's Who to contact, and
+          offer types use them to say where responses go. Leave one blank to use the standard name.</p>
+        <div class="grid2">
+          ${contactTitles(state.titles).map((role) => `
+            <label>${escape(role.standard)}
+              <input data-title="${escape(role.value)}" value="${escape(String(state.titles?.[role.value] ?? ""))}" placeholder="${escape(role.standard)}"
+                maxlength="${TITLE_MAX}" autocomplete="off"${attr("disabled", state.busy)}></label>`).join("")}
+        </div>
+      </div>`;
+  }
+
+  /** Saves the titles when one is left changed. */
+  function saveTitles() {
+    const typed = {};
+    root.querySelectorAll("[data-title]").forEach((input) => { typed[input.dataset.title] = input.value; });
+    const titles = cleanTitles(typed);
+    if (JSON.stringify(titles) === JSON.stringify(cleanTitles(state.titles))) return;
+    const problems = titleProblems(titles);
+    if (problems.length) {
+      notice(root, problems[0], "error");
+      return;
+    }
+    return run(async () => {
+      await api.saveContactTitles(profile.organization_id, titles);
+      await fetchAll();
+      return "Saved the contact titles. Customers see them at their next sync, on the newest app.";
+    });
+  }
+
   // ---------------------------------------------------------------- editing
 
   /** Keeps the add form's button and first problem current without redrawing (typing isn't interrupted). */
@@ -448,6 +486,7 @@ export function mountPeople(root, { profile }) {
     onInput(event);
     const element = event.target;
     if (element.dataset.contact) return saveContactField(element.dataset.contact, element.dataset.contactField, element.value);
+    if (element.dataset.title) return saveTitles();
     if (element.dataset.storeName) return renameStore(element.dataset.storeName, element.value);
     if (element.dataset.storeActive) return setStoreActive(element.dataset.storeActive, element.checked, element);
   }

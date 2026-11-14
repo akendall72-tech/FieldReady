@@ -89,6 +89,7 @@ export function describeActivity(entry) {
     case "organization.changed": {
       const on = pair(d.customer_inspections);
       if (on) return `turned customer inspections ${on[1] ? "on" : "off"}`;
+      if (pair(d.contact_titles)) return "renamed the store contact titles";
       return pair(d.mailing_address) ? "changed the mailing address for offer emails" : "changed the organization's settings";
     }
     case "form.published": return `published the ${subject} form`;
