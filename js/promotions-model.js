@@ -178,12 +178,18 @@ export const offerType = (kind) => OFFER_TYPES.find((type) => type.value === kin
  */
 export function routeWords(kind, saved = {}) {
   const type = offerType(kind);
-  const sales = titleFor("sales", saved);
-  const fallback = "with none, I'm interested emails go to the owners and replies to whoever emailed the offer.";
-  if (type.role === "sales") {
-    return `I'm interested emails and email replies go to each store's ${sales} contacts; ${fallback}`;
-  }
-  return `I'm interested emails and email replies go to each store's ${titleFor(type.role, saved)} contacts. A store without one uses its ${sales} contacts; ${fallback}`;
+  return `${type.label} offer: I'm interested emails and email replies go to ${routeTarget(kind, saved)}. A store with neither sends I'm interested emails to the owners, and replies to whoever emailed the offer.`;
+}
+
+/**
+ * Who works an offer type's responses at each store, with the organization's titles: "each store's
+ * Parts Counter contacts (its Sales Representative contacts where it has none)".
+ */
+export function routeTarget(kind, saved = {}) {
+  const type = offerType(kind);
+  const own = titleFor(type.role, saved);
+  if (type.role === "sales") return `each store's ${own} contacts`;
+  return `each store's ${own} contacts (its ${titleFor("sales", saved)} contacts where it has none)`;
 }
 
 export function blankOffer(today) {

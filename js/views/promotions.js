@@ -299,7 +299,7 @@ export function mountPromotions(root, { profile }) {
         <p class="meta">${words}</p>
         ${noAddress ? `<p class="callout">Offer emails must show your mailing address. ${isOwner ? "Add it under Mailing address on the Offers list." : "Ask an owner to add it under Mailing address on the Offers list."}</p>` : ""}
         ${s?.ready ? `<button class="secondary" data-action="email-offer"${attr("disabled", state.busy || noAddress)}>Email ${s.ready} ${s.ready === 1 ? "Farm" : "Farms"}</button>` : ""}
-        <p class="hint">Each farm gets it once, at the email on its customer record, with your mailing address and a link to stop offer emails. Replies go to the store's Sales contact.</p>
+        <p class="hint">Each farm gets it once, at the email on its customer record, with your mailing address and a link to stop offer emails. Replies go to ${escape(model.routeTarget(d.kind, state.titles))}.</p>
       </div>`;
   }
 
@@ -339,13 +339,20 @@ export function mountPromotions(root, { profile }) {
       : state.leadFilter === "open" ? model.isOpenLead(lead) : lead.lead_status === state.leadFilter);
     return `
       <div class="card">
-        <p class="hint">Customers who tapped I'm interested. The store's Sales contact got an email for each; reply to it, or call, then mark how it went.
+        <p class="hint">Customers who tapped I'm interested. Each one was emailed to the store's contacts for the offer's type (Sales, Parts, Service,
+          or Technology; shown on each lead); reply to it, or call, then mark how it went.
           ${isOwner ? "You see every store's." : "You see your store's, as its customer lead manager."}</p>
         <div class="segmented" role="group" aria-label="Leads">
           ${filters.map(([value, label]) => `<button class="segment${state.leadFilter === value ? " active" : ""}" data-lead-filter="${value}">${label}</button>`).join("")}
         </div>
         ${shown.length ? `<ol class="lead-list">${shown.map(leadRow).join("")}</ol>` : '<p class="meta">No leads here.</p>'}
       </div>`;
+  }
+
+  /** "Parts offer", from the lead's offer (Sales for an offer this page can't find). */
+  function leadType(lead) {
+    const offer = state.offers.find((o) => o.id === lead.promotion_id);
+    return `${model.offerType(offer?.kind).label} offer`;
   }
 
   function leadRow(lead) {
@@ -355,7 +362,7 @@ export function mountPromotions(root, { profile }) {
       <li class="lead">
         <div>
           <strong>${escape(lead.customer_name)}</strong> · ${escape(lead.machine_name ?? "Unnamed machine")}${lead.store_name ? ` · ${escape(lead.store_name)}` : ""}
-          <p class="meta">${escape(lead.offer_title)}${lead.offer_deal ? ` (${escape(lead.offer_deal)})` : ""} · ${escape(when)}</p>
+          <p class="meta">${escape(lead.offer_title)}${lead.offer_deal ? ` (${escape(lead.offer_deal)})` : ""} · ${escape(leadType(lead))} · ${escape(when)}</p>
           <p class="meta">${reach.map(escape).join(" · ")}</p>
           ${lead.handled_by_name ? `<p class="hint">Last updated by ${escape(lead.handled_by_name)}</p>` : ""}
         </div>

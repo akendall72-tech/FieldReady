@@ -6,7 +6,7 @@
 import {
   CONDITIONS, blankCondition, withOp, describeCondition, conditionProblem, blankOffer, addDays, offerProblems, cleanOffer,
   offerState, resultsFor, audienceWords, storesWords, isOpenLead, leadStatusLabel, valueKind, findCustomers, customerName,
-  addressProblem, emailWords, emailResult, ADDRESS_MAX, unsubscribeToken, OFFER_TYPES, offerType, routeWords,
+  addressProblem, emailWords, emailResult, ADDRESS_MAX, unsubscribeToken, OFFER_TYPES, offerType, routeWords, routeTarget,
 } from "../js/promotions-model.js";
 
 let passed = 0;
@@ -129,11 +129,13 @@ check("lead labels", leadStatusLabel("notInterested") === "Not interested" && le
   check("saving keeps the type", cleanOffer({ ...blankOffer("2026-11-29"), title: "Filters", kind: "parts" }).kind === "parts");
   check("…and a missing one saves as Sales", cleanOffer({ ...blankOffer("2026-11-29"), kind: undefined }).kind === "sales");
   const parts = routeWords("parts", { customer_service: "Parts Counter" });
+  check("a Parts offer says so", parts.startsWith("Parts offer: "));
   check("Parts responses go to the store's (renamed) customer service contacts, then Sales", parts.includes("each store's Parts Counter contacts")
-    && parts.includes("uses its Sales Representative contacts"));
-  check("…and with neither, the owners or the sender", parts.includes("go to the owners and replies to whoever emailed the offer"));
+    && parts.includes("(its Sales Representative contacts where it has none)"));
+  check("…and with neither, the owners or the sender", parts.includes("sends I'm interested emails to the owners, and replies to whoever emailed the offer"));
   const sales = routeWords("sales", {});
-  check("Sales responses go to Sales, with no second step", sales.includes("each store's Sales Representative contacts;") && !sales.includes("uses its"));
+  check("Sales responses go to Sales, with no second step", sales.includes("go to each store's Sales Representative contacts.") && !sales.includes("where it has none"));
+  check("replies name the same contacts", routeTarget("service", { service: "Shop" }) === "each store's Shop contacts (its Sales Representative contacts where it has none)");
   check("Technology goes to the PTx specialist", routeWords("technology").includes("PTx Product Specialist contacts"));
 }
 
