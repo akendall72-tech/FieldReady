@@ -22,6 +22,7 @@ import { mountActivity } from "./views/activity.js";
 import { mountFarm } from "./views/farm.js";
 import { mountPromotions } from "./views/promotions.js";
 import { mountDashboard } from "./views/dashboard.js";
+import { idleTooLong, lastUse, IDLE_MESSAGE } from "./idle-model.js";
 
 const root = document.getElementById("app");
 
@@ -84,6 +85,9 @@ function renderSignIn(message = "") {
     const button = form.querySelector("button");
     button.disabled = true;
     button.textContent = "Signing in…";
+    // Signing in is using the site: an old last-used time mustn't sign this new session straight out.
+    lastNoted = 0;
+    noteUse();
     try {
       await signIn(form.email.value, form.password.value);
     } catch (error) {
@@ -253,14 +257,48 @@ window.addEventListener("hashchange", () => {
   renderShell();
 });
 
+// ---------------------------------------------------------------- signing out when not used
+
+// When this browser last used the site, shared by its tabs. Storage can be blocked; then nothing is
+// recorded and nobody is signed out for it.
+const LAST_USED_KEY = "fieldReadyLastUsed";
+const lastUsed = () => { try { return Number(localStorage.getItem(LAST_USED_KEY)); } catch { return NaN; } };
+let lastNoted = 0;
+function noteUse() {
+  const now = Date.now();
+  if (now - lastNoted < 60 * 1000) return;
+  lastNoted = now;
+  try { localStorage.setItem(LAST_USED_KEY, String(now)); } catch { /* storage blocked */ }
+}
+/** Set when the site signed someone out for not using it, so the sign-in screen can say so. */
+let signedOutIdle = false;
+
+/** Signs out a session left unused too long. True when it did. */
+async function signOutIfIdle() {
+  if (!current.session || !idleTooLong(lastUse(lastUsed(), current.session.user?.last_sign_in_at))) return false;
+  signedOutIdle = true;
+  await signOut();
+  return true;
+}
+
+for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) {
+  window.addEventListener(type, () => { if (current.session) noteUse(); }, { passive: true, capture: true });
+}
+setInterval(signOutIfIdle, 5 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") signOutIfIdle(); });
+
 async function show(session) {
   if (globalThis.fieldReadyFramed) return;
   current.session = session;
   if (!session) {
     current.profile = null;
-    renderSignIn();
+    renderSignIn(signedOutIdle ? IDLE_MESSAGE : "");
+    signedOutIdle = false;
     return;
   }
+  if (await signOutIfIdle()) return;
+  lastNoted = 0;
+  noteUse();
   root.innerHTML = `<p class="loading">Loading…</p>`;
   try {
     // The code first: until it's entered, the database shows this person nothing.

@@ -323,7 +323,7 @@ export async function saveCustomerInspections(organizationId, on) {
 }
 
 /** The people server function this website expects: its VERSION (supabase/functions/people/index.ts). */
-export const EXPECTED_FUNCTION_VERSION = "2026-11-28";
+export const EXPECTED_FUNCTION_VERSION = "2026-11-30";
 
 /** The deployed people function's version, or null when it predates the version check. */
 export async function functionVersion() {
@@ -338,7 +338,7 @@ export async function functionVersion() {
 // ---------------------------------------------------------------- promotions
 
 /** The `offers` server function this website expects: its VERSION (supabase/functions/offers/index.ts). */
-export const EXPECTED_OFFERS_VERSION = "2026-11-29";
+export const EXPECTED_OFFERS_VERSION = "2026-11-30";
 
 /** The deployed offers function's version, or null when it isn't deployed (or predates the check). */
 export async function offersFunctionVersion() {
