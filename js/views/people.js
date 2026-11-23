@@ -457,9 +457,13 @@ export function mountPeople(root, { profile }) {
     const location = state.agriBarn.locations?.find((l) => l.key === key);
     if (!location) return;
     return run(async () => {
-      await api.pairAgriBarnLocation(profile.organization_id, key, storeId || null);
+      const { moved = 0, paused = 0 } = await api.pairAgriBarnLocation(key, storeId || null);
       location.storeId = storeId || null;
-      return storeId ? `${location.name} is paired with ${storeName(storeId)}.` : `${location.name} isn't paired with a store.`;
+      if (moved || paused) await fetchAll();
+      const people = (n) => `${n} ${n === 1 ? "person" : "people"}`;
+      return storeId
+        ? `${location.name} is paired with ${storeName(storeId)}.${moved ? ` ${people(moved)} moved there.` : ""}`
+        : `${location.name} isn't paired with a store.${paused ? ` ${people(paused)} from there can't sign in until it is.` : ""}`;
     });
   }
 

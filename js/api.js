@@ -307,11 +307,16 @@ export async function loadAgriBarnLocations() {
   throw error;
 }
 
-/** Pairs an Agri-Barn location with a store, or unpairs it (storeId null). Nothing changing means the access rules said no. */
-export async function pairAgriBarnLocation(organizationId, key, storeId) {
-  const rows = unwrap(await supabase.from("agri_barn_locations").update({ store_id: storeId })
-    .eq("organization_id", organizationId).eq("location_key", key).select("location_key"));
-  if (rows.length === 0) throw new Error("Only owners pair Agri-Barn's locations.");
+/**
+ * Pairs an Agri-Barn location with a store, or unpairs it (storeId null), through the agri-barn server
+ * function, which moves the people there at once (unpaired, they're paused). Returns { moved, paused }.
+ */
+export async function pairAgriBarnLocation(key, storeId) {
+  const { data, error } = await supabase.functions.invoke("agri-barn", { body: { action: "pair", key, storeId } });
+  if (!error) return data ?? { moved: 0, paused: 0 };
+  const answer = await error.context?.json?.().catch(() => null);
+  if (answer?.error) throw new Error(answer.error);
+  throw error;
 }
 
 /**
