@@ -7,6 +7,11 @@
 //
 // This page keeps no sign-in behind (a shared computer stays signed out), and never shows anyone
 // else's information.
+//
+// Opened from Agri-Barn (#…&type=magiclink, from the agri-barn server function): the person already
+// signed in there and chose to open Field Ready, so there's no password to choose. On a computer it signs
+// them in to the staff website and goes there; on a phone without the app it offers the website or the
+// app. That sign-in is kept, as the staff website's own is.
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, APP_DOWNLOAD_URL } from "./config.js";
 import { escape } from "./ui.js";
@@ -68,6 +73,40 @@ function renderStart(message = "") {
   root.querySelector("[data-choose]").addEventListener("submit", choose);
 }
 
+// ---------------------------------------------------------------- from Agri-Barn
+
+async function continueOnWebsite() {
+  page("Opening Field Ready", "Signing you in…", "");
+  const site = globalThis.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  });
+  const { error } = await site.auth.verifyOtp({ token_hash: link.token, type: "magiclink" });
+  history.replaceState(null, "", location.pathname);
+  if (error) {
+    page("This link didn't work", "", `
+      <div class="card">
+        <p>${escape(linkProblem(error).replace("Ask whoever invited you to send a new one.", "Open Field Ready from Agri-Barn again."))}</p>
+      </div>`);
+    return;
+  }
+  location.replace("./");
+}
+
+function renderFromAgriBarn() {
+  if (!onPhone) return continueOnWebsite();
+  page("Open Field Ready", "You came from Agri-Barn, so you're ready to go.", `
+    <div class="card welcome-app">
+      <p><strong>Have the Field Ready app?</strong> Agri-Barn opens it signed in. If this page opened instead, go back to
+        Agri-Barn and tap <strong>Open Field Ready</strong> again once the app is installed.</p>
+      ${getTheApp("go back to Agri-Barn and tap Open Field Ready again")}
+    </div>
+    <p class="welcome-or">or</p>
+    <div class="card">
+      <button class="primary" type="button" data-website>Continue on the Website</button>
+    </div>`);
+  root.querySelector("[data-website]").addEventListener("click", continueOnWebsite);
+}
+
 async function choose(event) {
   event.preventDefault();
   const form = event.target;
@@ -113,4 +152,7 @@ function renderFailed(message) {
     </div>`);
 }
 
-if (!globalThis.fieldReadyFramed) renderStart();
+if (!globalThis.fieldReadyFramed) {
+  if (link?.type === "magiclink") renderFromAgriBarn();
+  else renderStart();
+}

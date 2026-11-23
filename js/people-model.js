@@ -70,6 +70,10 @@ export const isLastOwner = (person, people) =>
  * and their own name and password.
  */
 export function permissions(viewer, person, people = []) {
+  return fromAgriBarn(person, rawPermissions(viewer, person, people));
+}
+
+function rawPermissions(viewer, person, people) {
   const none = { name: false, role: false, store: false, access: false, password: false };
   const self = viewer.id === person.id;
   if (viewer.role === "owner") {
@@ -83,6 +87,35 @@ export function permissions(viewer, person, people = []) {
     }
   }
   return none;
+}
+
+/**
+ * Someone who signs in from Agri-Barn (supabase/migrations/…_agri_barn_link.sql): their store follows their
+ * Agri-Barn location, so nobody changes it here, and access Agri-Barn took away is given back there (or an
+ * owner unlinks them). The database refuses both too (private.guard_profile_update).
+ */
+function fromAgriBarn(person, can) {
+  if (!person.agri_barn_user) return can;
+  return { ...can, store: false, access: can.access && !person.agri_barn_paused };
+}
+
+/** Whether the viewer may unlink someone from Agri-Barn (owners only), who is then set up here like anyone. */
+export function canUnlinkAgriBarn(viewer, person) {
+  return viewer.role === "owner" && !!person.agri_barn_user;
+}
+
+/** A name reduced for matching: lower case, letters and digits, single spaces. */
+const nameKey = (name) => String(name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * The store an unpaired Agri-Barn location probably goes with: the one in use with the same name, ignoring
+ * case and punctuation, or null. Only a suggestion; an owner pairs it.
+ */
+export function suggestedStore(location, stores) {
+  if (location.storeId) return null;
+  const key = nameKey(location.name);
+  if (!key) return null;
+  return stores.find((store) => store.active && nameKey(store.name) === key) ?? null;
 }
 
 /**

@@ -218,7 +218,7 @@ export async function setChecklistStatus(templateId, from, to) {
 export async function loadPeople() {
   return loadAll(() => supabase
     .from("profiles")
-    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, can_manage_leads, can_edit_custom, updated_at, created_at")
+    .select("id, full_name, email, role, active, location_id, customer_id, must_change_password, can_manage_promotions, can_edit_setup, can_manage_leads, can_edit_custom, agri_barn_user, agri_barn_paused, updated_at, created_at")
     .order("full_name", { ascending: true })
     .order("id", { ascending: true }));
 }
@@ -282,6 +282,36 @@ export async function saveStore(store, changes) {
   const { error } = await supabase.from("locations").update(changes).eq("id", store.id);
   if (error?.code === "23505") throw new Error(`There's already a store called “${changes.name}”.`);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------- Agri-Barn (…_agri_barn_link.sql)
+
+/** The Agri-Barn company the organization is linked to, or null: not linked. */
+export async function loadAgriBarnCompany(organizationId) {
+  const row = unwrap(await supabase.from("organizations").select("agri_barn_company").eq("id", organizationId).maybeSingle());
+  return row?.agri_barn_company ?? null;
+}
+
+/**
+ * Agri-Barn's locations and the stores they go with, with names brought up to date from Agri-Barn (the
+ * agri-barn server function asks it). Owners only.
+ */
+export async function loadAgriBarnLocations() {
+  const { data, error } = await supabase.functions.invoke("agri-barn", { body: { action: "locations" } });
+  if (!error) return data?.locations ?? [];
+  const answer = await error.context?.json?.().catch(() => null);
+  if (answer?.error) throw new Error(answer.error);
+  if (error.context?.status === 404 || error.name === "FunctionsFetchError") {
+    throw new Error("Couldn't reach the agri-barn server function. If it hasn't been deployed yet, deploy it in Supabase (see supabase/README.md in the app repository); otherwise check your connection.");
+  }
+  throw error;
+}
+
+/** Pairs an Agri-Barn location with a store, or unpairs it (storeId null). Nothing changing means the access rules said no. */
+export async function pairAgriBarnLocation(organizationId, key, storeId) {
+  const rows = unwrap(await supabase.from("agri_barn_locations").update({ store_id: storeId })
+    .eq("organization_id", organizationId).eq("location_key", key).select("location_key"));
+  if (rows.length === 0) throw new Error("Only owners pair Agri-Barn's locations.");
 }
 
 /**

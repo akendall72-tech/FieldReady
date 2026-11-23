@@ -6,6 +6,7 @@
 import {
   rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel, staffRoom, levelLabel, levelInfo,
   canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, canEditCustom, canGiveCustom, seesPromotions,
+  canUnlinkAgriBarn, suggestedStore,
 } from "../js/people-model.js";
 
 let passed = 0;
@@ -121,6 +122,24 @@ check("full", staffRoom({ level: 1, staff_limit: 50, used: 50 }).full && staffRo
 check("over after a lower level", staffRoom({ level: 1, staff_limit: 50, used: 63 }).over && staffRoom({ level: 1, staff_limit: 50, used: 63 }).line.includes("Nobody loses access"));
 check("no limit", !staffRoom({ level: 5, staff_limit: null, used: 250 }).full && staffRoom({ level: 5, staff_limit: null, used: 250 }).line.includes("no limit"));
 check("levels read as ranges", levelLabel(1) === "Level 1 (up to 50 staff)" && levelInfo(9).level === 1);
+
+// Signing in from Agri-Barn
+{
+  const linked = person("linked", "employee", "north", { agri_barn_user: "ab-1" });
+  const paused = person("paused", "employee", "north", { agri_barn_user: "ab-2", agri_barn_paused: true, active: false });
+  check("a linked person's store isn't changed here, even by an owner", !permissions(owner, linked, people).store);
+  check("…while the rest of what an owner can do stays", permissions(owner, linked, people).role && permissions(owner, linked, people).access);
+  check("access Agri-Barn took away isn't given back here", !permissions(owner, paused, people).access && !permissions(admin, paused, people).access);
+  check("an admin still switches off a linked employee at their store", permissions(admin, linked, people).access);
+  check("anyone else's store still changes", permissions(owner, tech, people).store);
+  check("owners unlink, nobody else", canUnlinkAgriBarn(owner, linked) && !canUnlinkAgriBarn(admin, linked) && !canUnlinkAgriBarn(owner, tech));
+  const stores = [{ id: "s1", name: "Twin Falls", active: true }, { id: "s2", name: "Moses-Lake", active: true }, { id: "s3", name: "Pasco", active: false }];
+  check("a store with the same name is suggested", suggestedStore({ name: "twin falls", storeId: null }, stores)?.id === "s1");
+  check("…ignoring punctuation", suggestedStore({ name: "Moses Lake", storeId: null }, stores)?.id === "s2");
+  check("…never a store not in use", suggestedStore({ name: "Pasco", storeId: null }, stores) === null);
+  check("…nor for a location already paired", suggestedStore({ name: "Twin Falls", storeId: "s2" }, stores) === null);
+  check("…nor when nothing matches", suggestedStore({ name: "Admin", storeId: null }, stores) === null);
+}
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

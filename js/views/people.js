@@ -47,6 +47,8 @@ export function mountPeople(root, { profile }) {
     handover: null,
     busy: false,
     loadError: null,
+    /** Owners: the Agri-Barn company the organization is linked to (null: not linked), and its locations once loaded. */
+    agriBarn: { company: null, locations: null },
   };
 
   const storeName = (id) => state.stores.find((store) => store.id === id)?.name ?? (id ? "Unknown store" : "Every store");
@@ -72,6 +74,7 @@ export function mountPeople(root, { profile }) {
     state.stores = stores;
     state.contacts = contacts;
     state.loadError = null;
+    if (isOwner) state.agriBarn.company = await api.loadAgriBarnCompany(profile.organization_id).catch(() => null);
   }
 
   async function load() {
@@ -114,6 +117,7 @@ export function mountPeople(root, { profile }) {
       ${peopleCard()}
       ${waitingCard()}
       ${isOwner ? storesCard() : ""}
+      ${isOwner && state.agriBarn.company ? agriBarnCard() : ""}
       ${isOwner ? titlesCard() : ""}
       ${!isOwner && canEditContacts(viewer, profile.location_id) ? `
         <div class="card">
@@ -314,7 +318,8 @@ export function mountPeople(root, { profile }) {
           ${person.can_manage_leads && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Lead manager</span>' : ""}
           ${person.can_edit_custom && person.role !== "owner" && person.role !== "customer" ? '<span class="tag">Custom checklists</span>' : ""}
           <span>${escape(person.role === "owner" ? "Every store" : storeName(person.location_id))}</span>
-          ${person.active ? "" : '<span class="access-off">Access off</span>'}
+          ${person.agri_barn_user ? '<span class="tag">From Agri-Barn</span>' : ""}
+          ${person.active ? "" : `<span class="access-off">${person.agri_barn_paused ? "Access off in Agri-Barn" : "Access off"}</span>`}
         </div>
         <div class="person-actions">
           ${canChange(person) ? `<button class="secondary" data-action="edit" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Edit</button>` : ""}
@@ -349,6 +354,9 @@ export function mountPeople(root, { profile }) {
         ${model.canGiveLeads(viewer, { ...person, role: edits.role }) ? `
           <label class="check"><input type="checkbox" data-edit="can_manage_leads"${attr("checked", edits.can_manage_leads)}> Customer lead manager</label>
           <p class="hint">Gets a notification when a customer at their store taps I'm Interested on an offer, sees those leads, and marks them Contacted, Sold, or Not interested. Without it, staff don't see leads. Owners always can, for every store.</p>` : ""}
+        ${person.agri_barn_user ? `<p class="hint">${person.agri_barn_paused
+          ? "Agri-Barn took their access away. It's given back there, or unlink them to set them up here."
+          : "They sign in from Agri-Barn, and their store follows their Agri-Barn location. Their role is set here."}</p>` : ""}
         ${person.id === viewer.id ? '<p class="hint">You can\'t turn off your own access.</p>' : ""}
         ${model.isLastOwner(person, state.people) ? '<p class="hint">The only owner stays an owner with access. Make someone else an owner first.</p>' : ""}
         <p class="form-error" data-edit-problem></p>
@@ -357,6 +365,7 @@ export function mountPeople(root, { profile }) {
           <button class="secondary" data-action="cancel-edit">Cancel</button>
           ${can.password ? `<button class="link" data-action="reset-password" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Send Password Link</button>` : ""}
           ${isOwner && person.id !== viewer.id ? `<button class="link" data-action="reset-two-step" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Reset Two-Step</button>` : ""}
+          ${model.canUnlinkAgriBarn(viewer, person) ? `<button class="link" data-action="unlink-agri-barn" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Unlink from Agri-Barn</button>` : ""}
         </div>
       </li>`;
   }
@@ -405,6 +414,53 @@ export function mountPeople(root, { profile }) {
           <button class="secondary" type="submit"${attr("disabled", state.busy)}>Add</button>
         </form>
       </div>`;
+  }
+
+  /**
+   * Owners pair each of Agri-Barn's locations with a store: staff who sign in from Agri-Barn land at the
+   * store their Agri-Barn location is paired with. Several locations may share a store.
+   */
+  function agriBarnCard() {
+    const locations = state.agriBarn.locations;
+    const stores = activeStores();
+    const row = (location) => {
+      const suggestion = model.suggestedStore(location, stores);
+      return `
+        <li class="store${location.gone ? " off" : ""}">
+          <label class="store-name">${escape(location.name)}${location.gone ? " <small>(no longer in Agri-Barn)</small>" : ""}
+            <select data-agri-barn-pair="${escape(location.key)}"${attr("disabled", state.busy)}>
+              <option value="">Not paired</option>
+              ${state.stores.filter((store) => store.active || store.id === location.storeId).map((store) =>
+                `<option value="${escape(store.id)}"${attr("selected", store.id === location.storeId)}>${escape(store.name)}</option>`).join("")}
+            </select>
+          </label>
+          ${suggestion ? `<button class="link" data-action="agri-barn-suggest" data-key="${escape(location.key)}" data-store="${escape(suggestion.id)}"${attr("disabled", state.busy)}>Pair with ${escape(suggestion.name)}</button>` : ""}
+          ${!location.storeId && !location.gone ? '<span class="hint">Nobody from here can sign in until it\'s paired.</span>' : ""}
+        </li>`;
+    };
+    return `
+      <div class="card">
+        <h2>Agri-Barn</h2>
+        <p class="hint">Your organization is linked to Agri-Barn. Staff Agri-Barn gives Field Ready to open it from there and
+          land at the store paired with their Agri-Barn location, as employees until you change their role. Their store
+          follows Agri-Barn; to move someone, move them there.</p>
+        ${locations === null
+          ? `<button class="secondary" data-action="agri-barn-locations"${attr("disabled", state.busy)}>Show Agri-Barn's Locations</button>`
+          : locations.length
+            ? `<ol class="store-list">${locations.map(row).join("")}</ol>
+               <button class="link" data-action="agri-barn-locations"${attr("disabled", state.busy)}>Check Agri-Barn Again</button>`
+            : '<p class="hint">Agri-Barn has no locations for your company yet.</p>'}
+      </div>`;
+  }
+
+  function pairAgriBarn(key, storeId) {
+    const location = state.agriBarn.locations?.find((l) => l.key === key);
+    if (!location) return;
+    return run(async () => {
+      await api.pairAgriBarnLocation(profile.organization_id, key, storeId || null);
+      location.storeId = storeId || null;
+      return storeId ? `${location.name} is paired with ${storeName(storeId)}.` : `${location.name} isn't paired with a store.`;
+    });
   }
 
   /** Owners name the four kinds of store contact their own way; a blank name goes back to the standard one. */
@@ -489,6 +545,7 @@ export function mountPeople(root, { profile }) {
     if (element.dataset.title) return saveTitles();
     if (element.dataset.storeName) return renameStore(element.dataset.storeName, element.value);
     if (element.dataset.storeActive) return setStoreActive(element.dataset.storeActive, element.checked, element);
+    if (element.dataset.agriBarnPair !== undefined) return pairAgriBarn(element.dataset.agriBarnPair, element.value);
   }
 
   async function onSubmit(event) {
@@ -551,6 +608,23 @@ export function mountPeople(root, { profile }) {
       case "reset-password": return resetPassword(person);
       case "reset-two-step": return resetTwoStep(person);
       case "cancel-invite": return cancelInvitation(element.dataset.email);
+      case "agri-barn-locations":
+        return run(async () => {
+          state.agriBarn.locations = await api.loadAgriBarnLocations();
+          return null;
+        });
+      case "agri-barn-suggest": return pairAgriBarn(element.dataset.key, element.dataset.store);
+      case "unlink-agri-barn": {
+        const name = person.full_name || person.email;
+        if (!confirm(`Unlink ${name} from Agri-Barn? They'll no longer sign in from there; set up their store and access here instead.`)) return;
+        return run(async () => {
+          await api.savePerson(person, { agri_barn_user: null, agri_barn_paused: false });
+          state.editing = null;
+          state.edits = null;
+          await fetchAll();
+          return `${name} is unlinked from Agri-Barn.`;
+        });
+      }
       case "toggle-contacts":
         state.contactsStore = state.contactsStore === element.dataset.store ? null : element.dataset.store;
         state.newContact = null;
