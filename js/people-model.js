@@ -99,6 +99,38 @@ function fromAgriBarn(person, can) {
   return { ...can, store: false, access: can.access && !person.agri_barn_paused };
 }
 
+/**
+ * Why `viewer` can't remove `person`'s login, in plain words, or null when they can. Owners remove logins
+ * (the people function's deleteLogin, which keeps their records): never their own, never the only owner,
+ * and never someone who signs in from Agri-Barn, whom Agri-Barn would give a new login the next time they
+ * open Field Ready from there. Turning their access off keeps them out instead: Agri-Barn leaves an
+ * owner's switch alone.
+ */
+export function removeProblem(viewer, person, people = []) {
+  if (viewer.role !== "owner") return "Only owners remove people.";
+  if (viewer.id === person.id) return "You can't remove yourself.";
+  if (isLastOwner(person, people)) return "They're the only owner. Make someone else an owner first.";
+  if (person.agri_barn_user) {
+    return "They sign in from Agri-Barn, which would give them a new login the next time they open Field Ready from there. Turn off their access instead (it stays off), or take away their Field Ready access in Agri-Barn.";
+  }
+  return null;
+}
+
+/** Whether `viewer` may turn `person`'s access off now: it's on, and the access rules allow it. */
+export const canTurnOff = (viewer, person, people = []) => person.active && permissions(viewer, person, people).access;
+
+/**
+ * Whether `viewer` may turn `person`'s access back on: it's off, and the access rules allow it. Access
+ * Agri-Barn took away is given back there, not here (the database refuses it too).
+ */
+export const canTurnBackOn = (viewer, person, people = []) =>
+  !person.active && !person.agri_barn_paused && permissions(viewer, person, people).access;
+
+/** People with access on, and those with it off (shown only when asked: People & stores › Show). */
+export function byAccess(people) {
+  return { on: people.filter((p) => p.active), off: people.filter((p) => !p.active) };
+}
+
 /** Whether the viewer may unlink someone from Agri-Barn (owners only), who is then set up here like anyone. */
 export function canUnlinkAgriBarn(viewer, person) {
   return viewer.role === "owner" && !!person.agri_barn_user;

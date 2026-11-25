@@ -6,7 +6,7 @@
 import {
   rolesFor, permissions, isLastOwner, newPersonProblems, sortPeople, temporaryPassword, roleLabel, staffRoom, levelLabel, levelInfo,
   canEditSetup, canGiveSetup, canManageLeads, canGiveLeads, canEditCustom, canGiveCustom, seesPromotions,
-  canUnlinkAgriBarn, suggestedStore,
+  canUnlinkAgriBarn, suggestedStore, removeProblem, canTurnOff, canTurnBackOn, byAccess,
 } from "../js/people-model.js";
 
 let passed = 0;
@@ -139,6 +139,29 @@ check("levels read as ranges", levelLabel(1) === "Level 1 (up to 50 staff)" && l
   check("…never a store not in use", suggestedStore({ name: "Pasco", storeId: null }, stores) === null);
   check("…nor for a location already paired", suggestedStore({ name: "Twin Falls", storeId: "s2" }, stores) === null);
   check("…nor when nothing matches", suggestedStore({ name: "Admin", storeId: null }, stores) === null);
+}
+
+// Removing people, and turning access off and back on
+{
+  const offTech = person("offTech", "employee", "north", { active: false });
+  const linked = person("linked", "employee", "north", { agri_barn_user: "ab-1" });
+  const paused = person("paused", "employee", "north", { active: false, agri_barn_user: "ab-2", agri_barn_paused: true });
+  const offLinked = person("offLinked", "employee", "north", { active: false, agri_barn_user: "ab-3" });
+  const all = [...people, offTech, linked, paused, offLinked];
+  check("owners remove someone", removeProblem(owner, tech, all) === null && removeProblem(owner, offTech, all) === null);
+  check("…not themselves", removeProblem(owner, owner, all) === "You can't remove yourself.");
+  check("…not the only owner", removeProblem(person("owner2", "owner", null), owner, all) === "They're the only owner. Make someone else an owner first.");
+  check("…nor someone who signs in from Agri-Barn (Agri-Barn would bring them back)", removeProblem(owner, linked, all)?.includes("Agri-Barn"));
+  check("admins and employees remove nobody", removeProblem(admin, tech, all) === "Only owners remove people." && removeProblem(tech, offTech, all) !== null);
+  check("owners turn someone's access off", canTurnOff(owner, tech, all) && canTurnOff(owner, linked, all));
+  check("…not their own, and not twice", !canTurnOff(owner, owner, all) && !canTurnOff(owner, offTech, all));
+  check("admins turn off their own store's employees", canTurnOff(admin, tech, all) && !canTurnOff(admin, southTech, all));
+  check("owners turn access back on", canTurnBackOn(owner, offTech, all) && !canTurnBackOn(owner, tech, all));
+  check("…including someone from Agri-Barn whom an owner turned off", canTurnBackOn(owner, offLinked, all));
+  check("…but not access Agri-Barn took away", !canTurnBackOn(owner, paused, all));
+  check("admins turn their own store's employees back on", canTurnBackOn(admin, offTech, all) && !canTurnBackOn(admin, { ...offTech, location_id: "south" }, all));
+  const split = byAccess(all);
+  check("access-off people are kept apart", split.on.length === people.length + 1 && split.off.map((p) => p.id).join() === "offTech,paused,offLinked");
 }
 
 print(`${passed} passed, ${failures.length} failed`);

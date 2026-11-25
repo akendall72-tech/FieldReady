@@ -358,7 +358,7 @@ export async function saveCustomerInspections(organizationId, on) {
 }
 
 /** The people server function this website expects: its VERSION (supabase/functions/people/index.ts). */
-export const EXPECTED_FUNCTION_VERSION = "2026-11-30";
+export const EXPECTED_FUNCTION_VERSION = "2026-12-03";
 
 /** The deployed people function's version, or null when it predates the version check. */
 export async function functionVersion() {

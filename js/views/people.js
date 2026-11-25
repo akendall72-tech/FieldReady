@@ -30,6 +30,8 @@ export function mountPeople(root, { profile }) {
     deletionRequests: [],
     /** The organization's level and staff logins in use (public.staff_allowance), or null before it's known. */
     allowance: null,
+    /** People & stores › Show: the people whose access is off, hidden until asked for. */
+    showOff: false,
     /** The organization's own names for its kinds of store contact (organizations.contact_titles). */
     titles: {},
     /** The store whose contacts are open (owners pick one; admins see their own). */
@@ -295,10 +297,17 @@ export function mountPeople(root, { profile }) {
           ${state.stores.map((store) => `<option value="${escape(store.id)}"${attr("selected", store.id === state.filter)}>${escape(store.name)}</option>`).join("")}
         </select>
       </label>` : "";
+    const { on, off } = model.byAccess(shown);
     return `
       <div class="card">
         <div class="detail-head"><h2>People</h2>${filter}</div>
-        ${shown.length ? `<ol class="person-list">${shown.map(personRow).join("")}</ol>` : '<p class="hint">Nobody here yet.</p>'}
+        ${on.length ? `<ol class="person-list">${on.map(personRow).join("")}</ol>` : '<p class="hint">Nobody here yet.</p>'}
+        ${off.length ? `
+          <button class="link" data-action="toggle-off" aria-expanded="${state.showOff}">
+            ${state.showOff ? "Hide people with access off" : `Show ${off.length} ${off.length === 1 ? "person" : "people"} with access off`}</button>
+          ${state.showOff ? `
+            <p class="hint">They can't sign in or sync. Their inspections stay. ${isOwner ? "Turn their access back on, or remove them for good." : "Turn your store's employees back on here."}</p>
+            <ol class="person-list">${off.map(personRow).join("")}</ol>` : ""}` : ""}
       </div>`;
   }
 
@@ -321,10 +330,41 @@ export function mountPeople(root, { profile }) {
           ${person.agri_barn_user ? '<span class="tag">From Agri-Barn</span>' : ""}
           ${person.active ? "" : `<span class="access-off">${person.agri_barn_paused ? "Access off in Agri-Barn" : "Access off"}</span>`}
         </div>
+        ${person.agri_barn_paused && !person.active ? '<p class="hint">Agri-Barn took their access away. It comes back from Agri-Barn, or unlink them to set them up here.</p>' : ""}
         <div class="person-actions">
           ${canChange(person) ? `<button class="secondary" data-action="edit" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Edit</button>` : ""}
+          ${model.canTurnBackOn(viewer, person, state.people) ? `<button class="secondary" data-action="turn-on" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Turn Access Back On</button>` : ""}
+          ${model.canTurnOff(viewer, person, state.people) ? `<button class="link" data-action="turn-off" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Turn Off Access</button>` : ""}
+          ${isOwner && !model.removeProblem(viewer, person, state.people) ? `<button class="link danger-link" data-action="remove" data-id="${escape(person.id)}"${attr("disabled", state.busy)}>Remove</button>` : ""}
         </div>
       </li>`;
+  }
+
+  /** Turns someone's access off, or back on. The database checks the rules (and the organization's level). */
+  function setAccess(person, active) {
+    const name = person.full_name || person.email;
+    if (!active && !confirm(`Turn off ${name}'s access? They can't sign in or sync until it's turned back on. Their inspections stay.${person.agri_barn_user ? " It stays off even when they open Field Ready from Agri-Barn." : ""}`)) return;
+    return run(async () => {
+      await api.savePerson(person, { active });
+      await fetchAll();
+      return active ? `${name} can sign in again.` : `Turned off ${name}'s access. They're under Show people with access off.`;
+    });
+  }
+
+  /** Owners remove someone's login for good (the people function's deleteLogin). Their records stay. */
+  function removePerson(person) {
+    const problem = model.removeProblem(viewer, person, state.people);
+    if (problem) return notice(root, problem, "error");
+    const name = person.full_name || person.email;
+    const agriBarn = state.agriBarn.company
+      ? " If they also use Agri-Barn with Field Ready turned on there, opening Field Ready from Agri-Barn gives them a new login; to keep them out, turn off their access instead."
+      : "";
+    if (!confirm(`Remove ${name}'s login for good? They can't sign in again, and this can't be undone. Inspections they did and their machines stay with your organization.${agriBarn}`)) return;
+    return run(async () => {
+      await api.callPeople("deleteLogin", { userId: person.id });
+      await fetchAll();
+      return `Removed ${name}'s login.`;
+    });
   }
 
   function editRow(person) {
@@ -608,6 +648,12 @@ export function mountPeople(root, { profile }) {
         state.editing = null;
         state.edits = null;
         return render();
+      case "toggle-off":
+        state.showOff = !state.showOff;
+        return render();
+      case "turn-off": return setAccess(person, false);
+      case "turn-on": return setAccess(person, true);
+      case "remove": return removePerson(person);
       case "save-person": return savePerson(person);
       case "reset-password": return resetPassword(person);
       case "reset-two-step": return resetTwoStep(person);

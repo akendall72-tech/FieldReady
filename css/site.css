@@ -57,6 +57,7 @@ button.primary { background: var(--field-green); color: #fff; font-weight: 700; 
 button.secondary { background: var(--surface); color: var(--pine); border-color: var(--hairline); font-weight: 600; }
 button.danger { background: none; color: var(--fault-red); font-weight: 600; padding: 6px 10px; }
 button.link { background: none; color: var(--pine); padding: 4px 6px; font-weight: 600; }
+button.link.danger-link { color: var(--fault-red); }
 button.add { background: none; color: var(--pine); font-weight: 600; padding: 6px 0; }
 button.icon { background: none; border-color: var(--hairline); padding: 4px 9px; line-height: 1.2; color: var(--text-secondary); }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
