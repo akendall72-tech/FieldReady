@@ -7,6 +7,16 @@
 
 import { slug } from "./checklist-model.js";
 
+/** What a service meter counts (the app's MeterUnit). */
+export const METER_UNITS = [
+  { value: "hours", label: "Hours" },
+  { value: "miles", label: "Miles" },
+  { value: "kilometers", label: "Kilometers" },
+  { value: "bales", label: "Bales" },
+  { value: "cycles", label: "Cycles" },
+  { value: "acres", label: "Acres" },
+];
+
 /** Lists whose options say which equipment types use them. */
 const USED_ON = { key: "equipment", type: "equipment", label: "Used on" };
 
@@ -42,6 +52,13 @@ export const LISTS = [
     parentLabel: "Question",
     empty: "No answers for this question yet.",
     settings: [],
+    fixed: [],
+  },
+  {
+    id: "service_meter",
+    title: "Service meters",
+    about: "What's read on a machine before every inspection (its hours, miles, or bale count), for the equipment types each is used on. A type with none skips the reading.",
+    settings: [{ key: "unit", type: "choice", label: "Unit", choices: METER_UNITS }, USED_ON],
     fixed: [],
   },
   {

@@ -39,6 +39,9 @@ export function mountMachine(root, ctx) {
     subscriptions: {},
     /** The customer's machines, for moving a receiver between them. */
     farmMachines: [],
+    /** Update Readings: open, and what's typed for each meter ({ text, cantRead, reason, confirmedLower }). */
+    metersOpen: false,
+    meters: {},
     busy: false,
     loadError: null,
   };
@@ -56,7 +59,8 @@ export function mountMachine(root, ctx) {
   const tiesToReceivers = () => Boolean(state.machine) && model.tiesSubscriptionsToReceivers(rows, state.machine);
   const receivers = () => (state.machine?.technology_components ?? []).filter(model.isReceiver);
   const isDirty = () => JSON.stringify(state.draft) !== state.saved
-    || Object.keys(state.components).length > 0 || Object.keys(state.subscriptions).length > 0;
+    || Object.keys(state.components).length > 0 || Object.keys(state.subscriptions).length > 0
+    || (state.metersOpen && Object.keys(state.meters).length > 0);
   const storeName = (id) => stores.find((s) => s.id === id)?.name ?? "Unknown store";
 
   function draftFrom(machine) {
@@ -127,7 +131,7 @@ export function mountMachine(root, ctx) {
           ${editable() ? `<button class="secondary" data-action="mark-checked"${attr("disabled", state.busy)}>Mark Checked</button>` : ""}
         </div>` : ""}
       ${detailsCard()}
-      ${machine ? featuresCard() + componentsCard() + (hasGuidance() || machine.correction_subscriptions?.length ? subscriptionsCard() : "") + manageCard() : ""}`;
+      ${machine ? metersCard() + featuresCard() + componentsCard() + (hasGuidance() || machine.correction_subscriptions?.length ? subscriptionsCard() : "") + manageCard() : ""}`;
   }
 
   const disabled = () => attr("disabled", !editable() || state.busy);
@@ -205,6 +209,88 @@ export function mountMachine(root, ctx) {
           </label>`).join("")}
       </div>
       <p class="hint">Checklists include or skip checks based on these answers. Leave any you can't confirm unanswered; every check stays in.</p>`;
+  }
+
+  /** Service meters (SMU): each meter's last reading, and Update Readings for whoever may change the machine. */
+  function metersCard() {
+    const machine = state.machine;
+    const meters = model.metersFor(rows, machine.equipment_type ?? "tractor");
+    if (!meters.length) return "";
+    const readings = machine.meters ?? {};
+    const day = (text) => (text ? new Date(`${text}T12:00:00`).toLocaleDateString(undefined, { dateStyle: "medium" }) : "");
+    return `
+      <div class="card">
+        <h2>Service meters</h2>
+        <p class="hint">Read before every inspection in the app.</p>
+        <dl class="meter-list">
+          ${meters.map((meter) => {
+            const reading = readings[meter.value];
+            const unit = model.meterUnit(rows, meter.value);
+            return `<div><dt>${escape(meter.label)}</dt><dd>${reading
+              ? `${escape(model.formatReading(reading, unit))}${reading.readOn ? ` <span class="hint">· ${escape(day(reading.readOn))}</span>` : ""}`
+              : '<span class="hint">No reading yet</span>'}</dd></div>`;
+          }).join("")}
+        </dl>
+        ${editable() && !state.metersOpen ? `<button class="secondary" data-action="update-meters"${attr("disabled", state.busy)}>Update Readings</button>` : ""}
+        ${state.metersOpen ? metersForm(meters, readings) : ""}
+      </div>`;
+  }
+
+  function metersForm(meters, readings) {
+    return `
+      <div class="meter-form">
+        ${meters.map((meter) => {
+          const entry = state.meters[meter.value] ?? {};
+          const unit = model.meterUnit(rows, meter.value);
+          const touched = entry.cantRead || String(entry.text ?? "").trim();
+          const problem = touched ? model.meterProblem(entry, readings[meter.value], unit) : null;
+          const key = escape(meter.value);
+          return `
+            <fieldset>
+              <legend>${escape(meter.label)}</legend>
+              ${entry.cantRead
+                ? `<label>Why can't it be read? <input data-meter="${key}" data-meter-part="reason" maxlength="200" value="${escape(entry.reason ?? "")}" placeholder="For example, display blank"></label>`
+                : `<label>Reading (${escape(model.UNIT_WORDS[unit])}) <input data-meter="${key}" data-meter-part="text" inputmode="decimal" value="${escape(entry.text ?? "")}"></label>`}
+              <label class="check"><input type="checkbox" data-meter="${key}" data-meter-part="cantRead"${attr("checked", entry.cantRead)}> Can't read it</label>
+              ${problem?.lower || entry.confirmedLower ? `<label class="check"><input type="checkbox" data-meter="${key}" data-meter-part="confirmedLower"${attr("checked", entry.confirmedLower)}> The lower reading is right</label>` : ""}
+              <p class="form-error" data-meter-problem="${key}">${escape(problem && !problem.lower ? problem.message : problem?.message ?? "")}</p>
+            </fieldset>`;
+        }).join("")}
+        <p class="hint">Fill in the meters you've read today. The others keep their last reading.</p>
+        <div class="actions">
+          <button class="primary" data-action="save-meters"${attr("disabled", state.busy)}>Save Readings</button>
+          <button class="secondary" data-action="cancel-meters">Cancel</button>
+        </div>
+      </div>`;
+  }
+
+  /** Saves the meters they filled in, dated today; the others keep their last reading. */
+  function saveMeters() {
+    const machine = state.machine;
+    const readings = machine.meters ?? {};
+    const today = new Date();
+    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    let meters = { ...readings };
+    let filled = 0;
+    for (const meter of model.metersFor(rows, machine.equipment_type ?? "tractor")) {
+      const entry = state.meters[meter.value] ?? {};
+      if (!entry.cantRead && !String(entry.text ?? "").trim()) continue;
+      const problem = model.meterProblem(entry, readings[meter.value], model.meterUnit(rows, meter.value));
+      if (problem) {
+        render();
+        return notice(root, `${meter.label}: ${problem.message}`, "error");
+      }
+      meters = model.withReading(meters, meter.value, model.meterReadingFrom(entry, readings[meter.value], day));
+      filled += 1;
+    }
+    if (!filled) return notice(root, "Fill in at least one reading, or tick Can't read it.", "error");
+    return run(async () => {
+      await api.saveMeters(machine, meters);
+      state.metersOpen = false;
+      state.meters = {};
+      await reload();
+      return "Saved the readings. Phones pick them up at their next sync.";
+    });
   }
 
   function featuresCard() {
@@ -416,6 +502,22 @@ export function mountMachine(root, ctx) {
 
   function onInput(event) {
     const element = event.target;
+    if (element.dataset.meter) {
+      const meter = element.dataset.meter;
+      const part = element.dataset.meterPart;
+      const entry = { ...(state.meters[meter] ?? {}) };
+      entry[part] = element.type === "checkbox" ? element.checked : element.value;
+      // A new number needs its own confirmation if it's lower.
+      if (part === "text") entry.confirmedLower = false;
+      state.meters[meter] = entry;
+      // Checkboxes change what's shown; typing only updates the message, so it isn't interrupted.
+      if (element.type === "checkbox") return render();
+      const reading = state.machine.meters?.[meter];
+      const problem = model.meterProblem(entry, reading, model.meterUnit(rows, meter));
+      const line = root.querySelector(`[data-meter-problem="${CSS.escape(meter)}"]`);
+      if (line) line.textContent = problem?.message ?? "";
+      return;
+    }
     if (element.dataset.answer && state.draft) {
       if (element.value) state.draft.details[element.dataset.answer] = element.value;
       else delete state.draft.details[element.dataset.answer];
@@ -462,6 +564,14 @@ export function mountMachine(root, ctx) {
 
   /** Features save as soon as they're picked. Everything else is handled as it's typed (onInput). */
   function onChange(event) {
+    // A number lower than the last reading offers its confirmation once they leave the box.
+    if (event.target.dataset.meterPart === "text") {
+      const meter = event.target.dataset.meter;
+      const entry = state.meters[meter] ?? {};
+      const problem = model.meterProblem(entry, state.machine.meters?.[meter], model.meterUnit(rows, meter));
+      if (problem?.lower) render();
+      return;
+    }
     const feature = event.target.dataset.feature;
     if (!feature) return;
     const changes = model.featureChanges(state.machine.installed_features ?? [], { [feature]: event.target.value });
@@ -507,6 +617,17 @@ export function mountMachine(root, ctx) {
           return "Marked as checked.";
         });
       case "delete": return deleteMachine();
+      case "update-meters":
+        state.metersOpen = true;
+        state.meters = {};
+        render();
+        root.querySelector("[data-meter-part='text']")?.focus();
+        return;
+      case "cancel-meters":
+        state.metersOpen = false;
+        state.meters = {};
+        return render();
+      case "save-meters": return saveMeters();
     }
   }
 

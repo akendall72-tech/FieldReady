@@ -9,6 +9,7 @@ import {
   findCustomers, canHaveGuidance, hasPlanterTechnology, questionsFor, answerChoices, cleanAnswers,
   softwareFits, softwareFor, softwareAfterSystemChange,
   tiesSubscriptionsToReceivers, isReceiver, receiverSummary, receiverMoveTargets, subscriptionProblems, moveQuestion,
+  metersFor, meterUnit, meterNumber, formatReading, meterProblem, meterReadingFrom, withReading,
 } from "../js/equipment-model.js";
 
 let passed = 0;
@@ -179,6 +180,34 @@ check("a factory one doesn't", subscriptionProblems(receiverRows, fendtTractor, 
 check("the move question names what moves", moveQuestion("AG-25", 1, "Fendt 724", "MF 7S.180") === "Move the AG-25 receiver and its 1 subscription from Fendt 724 to MF 7S.180?"
   && moveQuestion("AG-25", 2, "A", "B") === "Move the AG-25 receiver and its 2 subscriptions from A to B?"
   && moveQuestion("AG-25", 0, "A", "B") === "Move the AG-25 receiver from A to B?");
+
+// Service meters (SMU): which a type reads, and the rules for a reading (the app's MeterEntry)
+{
+  const meterRows = [
+    { list: "service_meter", value: "engineHours", label: "Engine hours", active: true, sort_order: 0, details: { unit: "hours", equipment: ["tractor", "combine"] } },
+    { list: "service_meter", value: "separatorHours", label: "Separator hours", active: true, sort_order: 1, details: { unit: "hours", equipment: ["combine"] } },
+    { list: "service_meter", value: "odometer", label: "Odometer", active: true, sort_order: 2, details: { unit: "miles", equipment: ["truck"] } },
+    { list: "service_meter", value: "oldMeter", label: "Old", active: false, sort_order: 3, details: { equipment: ["combine"] } },
+  ];
+  check("a combine reads engine and separator hours", metersFor(meterRows, "combine").map((m) => m.value).join() === "engineHours,separatorHours");
+  check("a truck reads its odometer, a planter nothing", metersFor(meterRows, "truck").map((m) => m.value).join() === "odometer" && metersFor(meterRows, "planter").length === 0);
+  check("units, hours when unset", meterUnit(meterRows, "odometer") === "miles" && meterUnit(meterRows, "oldMeter") === "hours");
+  check("numbers: commas ignored, one decimal", meterNumber("1,240.55") === 1240.6 && meterNumber("12") === 12);
+  check("…never below zero or not a number", meterNumber("-4") === null && meterNumber("lots") === null && meterNumber("") === null);
+  check("readings read plainly", formatReading({ value: 1240.5 }, "hours") === "1,240.5 hours" && formatReading({ value: 88, readOn: "x" }, "miles") === "88 miles");
+  check("…and say why one couldn't be read", formatReading({ value: null, note: "display blank" }) === "Couldn't be read: display blank");
+  const last = { value: 1240.5, readOn: "2026-11-01" };
+  check("an empty reading isn't ready", meterProblem({ text: "" }, last) !== null);
+  check("a higher reading is ready", meterProblem({ text: "1300" }, last) === null);
+  const lower = meterProblem({ text: "12" }, last);
+  check("a lower one asks for confirmation", lower?.lower === true && lower.message.includes("1,240.5 hours"));
+  check("…and is ready once confirmed", meterProblem({ text: "12", confirmedLower: true }, last) === null);
+  check("can't read it needs a reason", meterProblem({ cantRead: true, reason: " " }, last) !== null && meterProblem({ cantRead: true, reason: "x".repeat(201) }, last) !== null);
+  check("…which is kept", JSON.stringify(meterReadingFrom({ cantRead: true, reason: "display blank" }, last, "2026-12-04")) === '{"value":null,"readOn":"2026-12-04","note":"display blank"}');
+  check("a reading is saved with its day", JSON.stringify(meterReadingFrom({ text: "1,300" }, last, "2026-12-04")) === '{"value":1300,"readOn":"2026-12-04"}');
+  check("nothing saved until it's ready", meterReadingFrom({ text: "12" }, last, "2026-12-04") === null);
+  check("other meters keep their readings", JSON.stringify(withReading({ a: { value: 1 } }, "b", { value: 2 })) === '{"a":{"value":1},"b":{"value":2}}');
+}
 
 print(`${passed} passed, ${failures.length} failed`);
 for (const name of failures) print(`FAIL ${name}`);

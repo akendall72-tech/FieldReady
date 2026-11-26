@@ -7,6 +7,7 @@
 
 import {
   LISTS, SYMBOLS, optionsIn, canHide, newValue, newOption, moveOption, problems, baseline, changes, hasUsedOn, usedOn, usedWith, shownSymbol,
+  listInfo, MACHINE_LISTS,
 } from "../js/options-model.js";
 
 let passed = 0;
@@ -155,6 +156,14 @@ if (seedPath) {
   const symbols = new Set(SYMBOLS.map((s) => s.value));
   const icons = [...seed.matchAll(/"symbol":"([^"]+)"/g)].map((m) => m[1]);
   check(`every seeded icon can be chosen (${icons.filter((s) => !symbols.has(s)).join(", ")})`, icons.every((s) => symbols.has(s)));
+}
+
+// Service meters (2026-12-04): a unit to choose and the types they're read on, on Machine options
+{
+  const meters = listInfo("service_meter");
+  check("Service meters is a Machine options list", MACHINE_LISTS.includes(meters));
+  check("…with a Unit choice and Used on", meters.settings.map((s) => `${s.key}:${s.type}`).join() === "unit:choice,equipment:equipment"
+    && meters.settings[0].choices.map((c) => c.value).join() === "hours,miles,kilometers,bales,cycles,acres");
 }
 
 print(`${passed} passed, ${failures.length} failed`);

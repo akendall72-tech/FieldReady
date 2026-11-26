@@ -590,3 +590,11 @@ button .ico { vertical-align: -2px; margin-right: 3px; }
   .renewal-date { text-align: left; }
   .dash-hero { flex-direction: column; }
 }
+
+/* ---------- service meters (machine page) */
+.meter-list { margin: 8px 0 12px; }
+.meter-list > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--hairline); }
+.meter-list dt { font-weight: 600; }
+.meter-list dd { margin: 0; }
+.meter-form fieldset { border: 1px solid var(--hairline); border-radius: var(--radius); padding: 10px 12px; margin: 0 0 10px; }
+.meter-form legend { font-weight: 600; padding: 0 4px; }

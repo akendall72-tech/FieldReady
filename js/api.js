@@ -659,6 +659,16 @@ export const saveMachine = (machine, values) => saveRecord("machines", machine, 
  * Marks a machine the customer added or changed as checked by staff (the server clears the mark
  * for staff; anything else about the machine stays as it is).
  */
+/**
+ * A machine's service meter readings (machines.meters, …_service_meters.sql), unless someone else saved
+ * the machine since it was loaded. They don't count as a change for the Changed by the customer mark.
+ */
+export async function saveMeters(machine, meters) {
+  const rows = unwrap(await supabase.from("machines").update({ meters })
+    .eq("id", machine.id).eq("updated_at", machine.updated_at).select("id"));
+  if (rows.length === 0) throw new SaveConflict("Someone else changed this machine since you opened it.");
+}
+
 export async function markChecked(machine) {
   const rows = unwrap(await supabase.from("machines").update({ customer_changed: false })
     .eq("id", machine.id).eq("updated_at", machine.updated_at).select("id, customer_changed"));

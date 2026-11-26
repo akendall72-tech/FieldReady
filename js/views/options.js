@@ -202,6 +202,16 @@ export function mountOptions(root, { profile }) {
     switch (setting.type) {
       case "bool":
         return `<label class="check"><input type="checkbox" ${data}${attr("checked", value === true)}${disabled}> ${escape(setting.label)}</label>`;
+      case "choice": {
+        // Missing means the first choice (a meter without a unit counts hours, as the app reads it).
+        const current = setting.choices.some((choice) => choice.value === value) ? value : setting.choices[0].value;
+        return `
+          <label>${escape(setting.label)}
+            <select ${data}${disabled}>
+              ${setting.choices.map((choice) => `<option value="${escape(choice.value)}"${attr("selected", choice.value === current)}>${escape(choice.label)}</option>`).join("")}
+            </select>
+          </label>`;
+      }
       case "tristate": {
         const current = value === true ? "yes" : value === false ? "no" : "";
         return `

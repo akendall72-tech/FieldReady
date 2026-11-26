@@ -139,6 +139,71 @@ export const questionsFor = (rows, type, answered = []) => {
   return shown;
 };
 
+// ---------------------------------------------------------------- service meters (SMU, 2026-12-04)
+// Mirrors the app's MeterEntry, MeterReading, and MeterFormat (Engine/ServiceMeters.swift). A machine's
+// latest readings are machines.meters: { meter: { value, readOn, note } }, a missing value with its reason.
+
+/** How each unit is written after a number (the app's MeterUnit.title). */
+export const UNIT_WORDS = { hours: "hours", miles: "miles", kilometers: "km", bales: "bales", cycles: "cycles", acres: "acres" };
+
+/** The meters read on a machine of this type, in order (none: nothing to read). */
+export const metersFor = (rows, type) => choices(rows, "service_meter", { equipmentType: type });
+
+/** What a meter counts; hours when it's not set. */
+export const meterUnit = (rows, meter) => {
+  const unit = rows.find((row) => row.list === "service_meter" && row.value === meter)?.details?.unit;
+  return UNIT_WORDS[unit] ? unit : "hours";
+};
+
+/** The typed number, kept to one decimal: commas and spaces ignored; null when it isn't a number of zero or more. */
+export function meterNumber(text) {
+  const cleaned = String(text ?? "").replace(/,/g, "").trim();
+  if (!cleaned || !/^\d*\.?\d+$|^\d+\.$/.test(cleaned)) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 10) / 10 : null;
+}
+
+/** "1,240.5" */
+export const formatMeterNumber = (value) => Number(value).toLocaleString("en-US", { maximumFractionDigits: 1 });
+
+/** "1,240.5 hours", or "Couldn't be read: display blank". */
+export function formatReading(reading, unit = "hours") {
+  if (typeof reading?.value === "number") return `${formatMeterNumber(reading.value)} ${UNIT_WORDS[unit] ?? unit}`;
+  const note = String(reading?.note ?? "").trim();
+  return note ? `Couldn't be read: ${note}` : "Couldn't be read";
+}
+
+/**
+ * What stops a reading being saved, in plain words, or null when it's ready. `entry` is { text, cantRead,
+ * reason, confirmedLower }; `last` the meter's last reading. A number lower than the last needs
+ * confirmedLower (a replaced meter); `lower` says so, so the page can offer the confirmation.
+ */
+export function meterProblem(entry, last, unit = "hours") {
+  if (entry.cantRead) {
+    const reason = String(entry.reason ?? "").trim();
+    if (!reason) return { message: "Say why it can't be read." };
+    if (reason.length > 200) return { message: "Keep the reason to 200 characters." };
+    return null;
+  }
+  if (!String(entry.text ?? "").trim()) return { message: "Enter a reading, or tick Can't read it." };
+  const number = meterNumber(entry.text);
+  if (number === null) return { message: "Enter a number, like 1240.5." };
+  if (typeof last?.value === "number" && number < last.value && !entry.confirmedLower) {
+    return { lower: true, message: `This is lower than the last reading (${formatMeterNumber(last.value)} ${UNIT_WORDS[unit] ?? unit}). Confirm it's right, such as a replaced meter.` };
+  }
+  return null;
+}
+
+/** The reading to save for `day` ("2026-12-04"), or null until it's ready. */
+export function meterReadingFrom(entry, last, day) {
+  if (meterProblem(entry, last)) return null;
+  if (entry.cantRead) return { value: null, readOn: day, note: String(entry.reason).trim() };
+  return { value: meterNumber(entry.text), readOn: day };
+}
+
+/** A machine's readings with one meter's new reading, the others kept. */
+export const withReading = (meters, meter, reading) => ({ ...(meters ?? {}), [meter]: reading });
+
 /** A question's answers, in order, plus the current answer when it's hidden or unknown. */
 export function answerChoices(rows, question, current = null) {
   const all = optionsIn(rows, "machine_answer", question);
@@ -181,7 +246,7 @@ export const softwareAfterSystemChange = (rows, system, software) => (softwareFi
  * the machine's equipment type), plus the current value when it's hidden, so it still shows.
  */
 export function choices(rows, list, { equipmentType = null, current = null } = {}) {
-  const fits = (row) => row.active && (!equipmentType || !["feature", "component_kind", "machine_question"].includes(list) || usedOn(row).includes(equipmentType));
+  const fits = (row) => row.active && (!equipmentType || !["feature", "component_kind", "machine_question", "service_meter"].includes(list) || usedOn(row).includes(equipmentType));
   const shown = optionsIn(rows, list).filter(fits);
   if (current && !shown.some((row) => row.value === current)) {
     const kept = optionsIn(rows, list).find((row) => row.value === current);
